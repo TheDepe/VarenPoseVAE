@@ -19,7 +19,7 @@ Based on [VPoser](https://github.com/nghorbani/human_body_prior/)
 ## TO DOS:
 - [ ] Fill out this README
 - [ ] Figure out and share full environment
-- [ ] Make checkpoint publically available (On project page)
+- [x] Make checkpoint publically available (On project page)
 - [ ] Clean up code
 - [ ] Create read-to-use model (remove loss functions, auto-load checkpoint etc)
 
@@ -30,7 +30,7 @@ Based on [VPoser](https://github.com/nghorbani/human_body_prior/)
 
 
 ## Downloading the Checkpoints
-
+Download of the checkpoint can be found [here](https://varen.is.tue.mpg.de/download.php). Please sign up / log in to download. The download can be found on the downloads page under VAREN Poser (VarenPoser.pth)
 
 ## Contact
 
