@@ -6,13 +6,15 @@ import trimesh
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from src.models.vposer import VPoser
+from src.models.varen_poser import VarenPoserTrainingExtension
 from src.utils.logger import *
-from src.datasets.varen_pose_dataset import VarenAlignmentData, VarenMoCapData
+from src.datasets.varen_pose_dataset import VarenMoCapData
 
-
+# --------------------------------------------------------------------------------------------------
 # Arguments
+# --------------------------------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
+
 # Model arguments
 parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
 
@@ -21,6 +23,7 @@ parser.add_argument('--dataset_path', type=str, default='/ps/project/horses_in_m
 parser.add_argument('--train_batch_size', type=int, default=2048)
 parser.add_argument('--val_batch_size', type=int, default=512)
 parser.add_argument('--checkpoint', type=str, default=None, help="Path to checkpoint file")
+
 # Optimizer and scheduler
 parser.add_argument('--lr', type=float, default=1e-5) #1e-5
 
@@ -29,24 +32,23 @@ parser.add_argument('--epochs', type=int, default=float('inf'))  # Specify the n
 
 args = parser.parse_args()
 
+
+# --------------------------------------------------------------------------------------------------
+
+
 log_dir = get_new_log_dir()
 logger = create_logger("VAE Trainer", log_dir)
 
 logger.info('[Initialisation] Loading Datasets...')
-#train_data = VarenAlignmentData(data_dir="/home/dperrett/Documents/Data/VAREN/VARENset/", split="train")
-#val_data = VarenAlignmentData(data_dir="/home/dperrett/Documents/Data/VAREN/VARENset/", split="val")
 
 train_data = VarenMoCapData("/home/dperrett/Documents/Data/VAREN/From Ci")
-#val_data = VarenMoCapData("/home/dperrett/Documents/Data/VAREN/From Ci/")
 
 dataloader_train = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True)
-#dataloader_val = DataLoader(val_data)
 device = 'cuda'
 
-model = VPoser(input_dim=1 ,latent_dim=128).to(device)
+model = VarenPoserTrainingExtension(varen_path=args.varen_model_path).to(device)
 params_to_optimize = [p for name, p in model.named_parameters() if 'body_model' not in name]
 optimiser = Adam(params_to_optimize, lr=args.lr, weight_decay=0.00001)
-
 
 # Load checkpoint if provided
 start_epoch = 0
@@ -57,15 +59,14 @@ if args.checkpoint and os.path.exists(args.checkpoint):
     # Load model weights
     model.load_state_dict(checkpoint, strict=False)
 
-
     logger.info(f"Resuming training from epoch {start_epoch}.")
-
-
 
 
 logger.info(f'[Initialisation] Size of model: {sum(p.numel() for p in params_to_optimize)}')
 
 kld_weight = 1.0 / len(dataloader_train)  # Normalization for KL divergence
+
+
 epoch = 0
 while epoch <= args.epochs:
     logger.info(f'Starting Epoch {epoch+1}/{args.epochs}')
@@ -87,8 +88,6 @@ while epoch <= args.epochs:
         orig, recon = model.construct_meshes(batch, recon)
         orig = orig.vertices.detach().cpu().numpy()
         recon = recon.vertices.detach().cpu().numpy()
-
-        
         
         idx = torch.randint(0, batchsize, (1,)).item()  # Extract the integer value
         trimesh.Trimesh(vertices=orig[idx], faces=model.body_model.faces).export(log_dir / f"input_epoch_{epoch}.ply")
@@ -101,6 +100,7 @@ while epoch <= args.epochs:
         filtered_state_dict = {k: v for k, v in state_dict.items() if 'body_model' not in k}
         
         torch.save(filtered_state_dict, log_dir / f"VAREN_pose_VAE_epoch_{epoch}.pth")
+
     epoch += 1
 
 

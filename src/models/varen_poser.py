@@ -11,12 +11,10 @@
 # Contact: ps-license@tuebingen.mpg.de
 #
 #
-# If you use this code in a research publication please consider citing the following:
-#
-# Expressive Body Capture: 3D Hands, Face, and Body from a Single Image <https://arxiv.org/abs/1904.05866>
-#
-#
 # Code Developed by:
+# Dennis Perrett <https://github.com/TheDepe>
+#
+# Based on the original implementation by
 # Nima Ghorbani <https://nghorbani.github.io/>
 #
 # 2020.12.12
@@ -58,12 +56,32 @@ class NormalDistDecoder(nn.Module):
         return torch.distributions.normal.Normal(self.mu(Xout), F.softplus(self.logvar(Xout)))
 
 
-class VPoser(nn.Module):
-    def __init__(self, **kwargs):
-        super(VPoser, self).__init__()
+class VarenPoser(nn.Module):
+    """
+    VarenPoser is a Variational Autoencoder (VAE)-based model for learning 
+    horse body poses. It consists of an encoder that compresses body poses 
+    into a latent space and a decoder that reconstructs poses from the 
+    latent representation.
+
+    Attributes:
+        body_model (VAREN): A pre-trained horse model used for pose reconstruction.
+        num_joints (int): The number of joints in the horse body model.
+        latentD (int): Dimensionality of the latent space.
+        encoder_net (nn.Sequential): The network for encoding poses.
+        decoder_net (nn.Sequential): The network for decoding poses.
+    """
+    def __init__(self, varen_path, **kwargs):
+        """
+        Initialise the VarenPoser model.
+
+        Args:
+            varen_path (str): Path to the pre-trained VAREN body model.
+            **kwargs: Additional arguments for potential extensions.
+        """
+        super(VarenPoser, self).__init__()
 
         num_neurons, self.latentD = 512, 32
-        self.body_model = VAREN("/home/dperrett/Documents/Data/VAREN/models/VAREN").to('cuda')
+        self.body_model = VAREN(varen_path)
         # Dont' train body model
         for param in self.body_model.parameters():
             param.requires_grad = False
@@ -94,17 +112,32 @@ class VPoser(nn.Module):
         )
 
     def encode(self, pose_body):
-        '''
-        :param Pin: Nx(numjoints*3)
-        :param rep_type: 'matrot'/'aa' for matrix rotations or axis-angle
-        :return:
-        '''
+        """
+        Encodes the input pose into a probabilistic latent representation.
+
+        Args:
+            pose_body (torch.Tensor): Input pose of shape (N, num_joints * 3).
+
+        Returns:
+            Normal: A normal distribution in latent space representing the pose.
+        """
         return self.encoder_net(pose_body)
 
-    def decode(self, Zin):
-        bs = Zin.shape[0]
+    def decode(self, Z):
+        """
+        Decodes a latent representation into a reconstructed pose.
 
-        prec = self.decoder_net(Zin)
+        Args:
+            Z (torch.Tensor): Latent representation of shape (N, latentD).
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing:
+                - 'pose_body' (torch.Tensor): Decoded pose in axis-angle format.
+                - 'pose_body_matrot' (torch.Tensor): Decoded pose in matrix rotation format.
+        """
+        bs = Z.shape[0]
+
+        prec = self.decoder_net(Z)
 
         return {
             'pose_body': matrot2aa(prec.view(-1, 3, 3)).view(bs, -1, 3),
@@ -113,12 +146,15 @@ class VPoser(nn.Module):
 
 
     def forward(self, pose_body):
-        '''
-        :param Pin: aa: Nx1xnum_jointsx3 / matrot: Nx1xnum_jointsx9
-        :param input_type: matrot / aa for matrix rotations or axis angles
-        :param output_type: matrot / aa
-        :return:
-        '''
+        """
+        Performs a forward pass through the encoder and decoder.
+
+        Args:
+            pose_body (torch.Tensor): Input body pose of shape (N, num_joints * 3).
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing decoded pose representations.
+        """
 
         q_z = self.encode(pose_body)
         q_z_sample = q_z.rsample()
@@ -126,49 +162,106 @@ class VPoser(nn.Module):
         decode_results.update({'poZ_body_mean': q_z.mean, 'poZ_body_std': q_z.scale, 'q_z': q_z})
         return decode_results
 
-    def sample_poses(self, num_poses, seed=None):
+    def sample_poses(self, num_poses, temperature=1.0, seed=None):
+        """
+        Samples new poses from the latent space.
+
+        Args:
+            num_poses (int): Number of poses to generate.
+            seed (int, optional): Random seed for reproducibility.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary containing generated poses.
+        """
         np.random.seed(seed)
 
-        some_weight = [a for a in self.parameters()][0]
+        assert temperature > 0.0, f"Temperature must be positive and non-zero. Got {temperature}"
+        
+        # Get model's data type & device
+        some_weight = next(self.parameters())  
         dtype = some_weight.dtype
         device = some_weight.device
+
         self.eval()
         with torch.no_grad():
-            Zgen = torch.tensor(np.random.normal(0., 1., size=(num_poses, self.latentD)), dtype=dtype, device=device)
+            Zgen = torch.tensor(np.random.normal(0., 1.0 * temperature, size=(num_poses, self.latentD)), dtype=dtype, device=device)
 
         return self.decode(Zgen)
     
+    
+class VarenPoserTrainingExtension(VarenPoser):
+    """
+    Extended version of VarenPoser with additional training utilities.
+
+    Includes functions for computing loss and constructing meshes.
+
+    Methods:
+        construct_meshes(dorig, drec): Constructs original and reconstructed 3D meshes.
+        compute_loss(dorig, drec): Computes loss terms including reconstruction and KL divergence loss.
+    """
+    def __init__(self, varen_path, **kwargs):
+        """
+        Initializes the extended VarenPoser class.
+
+        Args:
+            varen_path (str): Path to the pre-trained VAREN model.
+            **kwargs: Additional arguments.
+        """
+        super().__init__(varen_path, **kwargs)
+
     def construct_meshes(self, dorig, drec):
+        """
+        Constructs 3D meshes for original and reconstructed poses.
+
+        Args:
+            dorig (torch.Tensor): Original pose tensor of shape (N, num_joints * 3).
+            drec (Dict[str, torch.Tensor]): Dictionary of reconstructed pose tensors.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Original and reconstructed mesh objects.
+        """
         bs = dorig.shape[0]
         betas = torch.zeros(bs,39).to(dorig.device).float()
         transl = torch.zeros(bs,3).to(dorig.device).float()
         gl_orien = torch.zeros(bs,3).to(dorig.device).float()
-
-        #print(f"DEBUG || input shape {dorig.shape}")
-        #print(f"DEBUG || pred shape {drec['pose_body'].reshape(bs,-1).shape}")
+    
         mesh_orig = self.body_model(global_orient=gl_orien, body_pose=dorig.float(), transl=transl, betas=betas)
         mesh_recon = self.body_model(global_orient=gl_orien, body_pose=drec['pose_body'].reshape(bs,-1).float(), transl=transl, betas=betas)
 
         return mesh_orig, mesh_recon
 
-    def compute_loss(self, dorig, drec):
+    def compute_loss(self, pose_gt, pose_pred):
+        """
+        Computes the total loss for training.
+
+        Loss components include:
+        - KL Divergence
+        - L1 Mesh Reconstruction Loss
+        - Geodesic Rotation Loss
+        - Joint Position Loss
+
+        Args:
+            pose_gt (torch.Tensor): Original body pose tensor of shape (N, num_joints * 3).
+            drepose_predc (Dict[str, torch.Tensor]): Dictionary containing reconstructed poses.
+
+        Returns:
+            Dict[str, Dict[str, torch.Tensor]]: Dictionary containing weighted and unweighted loss terms.
+        """
         l1_loss = torch.nn.L1Loss(reduction='mean')
         geodesic_loss = geodesic_loss_R(reduction='mean')
 
-        bs, latentD = drec['poZ_body_mean'].shape
-        device = drec['poZ_body_mean'].device
+        bs, latentD = pose_pred['poZ_body_mean'].shape
+        device = pose_pred['poZ_body_mean'].device
 
         loss_kl_wt = 0.005
         loss_rec_wt = 4
         loss_matrot_wt = 2
         loss_jtr_wt = 2
 
-        q_z = drec['q_z']
+        q_z = pose_pred['q_z']
 
         # Reconstruction loss - L1 on the output mesh
-        mesh_orig, mesh_recon = self.construct_meshes(dorig, drec)
-        
-
+        mesh_orig, mesh_recon = self.construct_meshes(pose_gt, pose_pred)
         v2v = l1_loss(mesh_orig.vertices, mesh_recon.vertices)
 
         # KL loss
@@ -180,14 +273,9 @@ class VPoser(nn.Module):
             'loss_mesh_rec': loss_rec_wt * v2v
         }
 
-        weighted_loss_dict['matrot'] = loss_matrot_wt * geodesic_loss(drec['pose_body_matrot'].view(-1,3,3).double(), aa2matrot(dorig.view(-1,3)))
+        weighted_loss_dict['matrot'] = loss_matrot_wt * geodesic_loss(pose_pred['pose_body_matrot'].view(-1,3,3).double(), aa2matrot(pose_gt.view(-1,3)))
         weighted_loss_dict['jtr'] = loss_jtr_wt * l1_loss(mesh_orig.joints, mesh_recon.joints)
 
         weighted_loss_dict['loss_total'] = torch.stack(list(weighted_loss_dict.values())).sum()
 
-        # with torch.no_grad():
-        #     unweighted_loss_dict = {'v2v': torch.sqrt(torch.pow(bm_rec.v-bm_orig.v, 2).sum(-1)).mean()}
-        #     unweighted_loss_dict['loss_total'] = torch.cat(
-        #         list({k: v.view(-1) for k, v in unweighted_loss_dict.items()}.values()), dim=-1).sum().view(1)
-
-        return {'weighted_loss': weighted_loss_dict, 'unweighted_loss': {}} #unweighted_loss_dict}
+        return {'weighted_loss': weighted_loss_dict, 'unweighted_loss': {}} 
