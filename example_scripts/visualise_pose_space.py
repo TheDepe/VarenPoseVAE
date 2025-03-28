@@ -19,7 +19,7 @@
 #
 # Example usage:
 # NOTE: Script requires the follow structure to run, due to directory structure. 
-#     python -m examples.visualize_latent_space.py --save_samples
+#     python -m examples.visualize_latent_space --save_samples
 #
 # Dependencies:
 #     - torch

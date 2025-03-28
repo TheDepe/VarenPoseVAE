@@ -19,7 +19,7 @@
 #
 # Example usage:
 # NOTE: Script requires the follow structure to run, due to directory structure. 
-#     python -m examples.sample_VAE.py --num_samples 5 --save_samples --temperature 1.5
+#     python -m examples.sample_VAE --num_samples 5 --save_samples --temperature 1.5
 #
 # Dependencies:
 #     - torch

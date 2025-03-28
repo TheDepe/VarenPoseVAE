@@ -1,0 +1,5 @@
+pyglet<2.0
+torch
+tqdm
+trimesh
+varen
