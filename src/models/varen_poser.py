@@ -19,14 +19,23 @@
 #
 # 2020.12.12
 
-import numpy as np
+
 import torch
-from .model_components import BatchFlatten
-from src.utils.rotation_tools import matrot2aa, aa2matrot
-from src.utils.angle_continuous_repres import geodesic_loss_R
+import numpy as np
+
 from torch import nn
 from torch.nn import functional as F
 from varen import VAREN
+
+from .model_components import BatchFlatten
+from src.utils.angle_continuous_repres import geodesic_loss_R
+from src.utils.rotation_tools import (
+    matrot2aa,
+    aa2matrot,
+    remove_rotation_from_axis,
+    merge_global_orients_along_axis
+)
+
 
 
 class ContinousRotReprDecoder(nn.Module):
@@ -187,6 +196,27 @@ class VarenPoser(nn.Module):
             Zgen = torch.tensor(np.random.normal(0., 1.0 * temperature, size=(num_poses, self.latentD)), dtype=dtype, device=device)
 
         return self.decode(Zgen)
+    
+    def regularise_pose(self, full_pose: torch.Tensor) -> torch.Tensor:
+        """
+        Regularizes the pose using the VarenPoser model.
+
+        Args:
+            full_pose (Tensor): A tensor of shape (batch_size, pose_dim) representing full body pose.
+
+        Returns:
+            Tensor: The regularized pose.
+        """
+
+        # remove go z rotation
+        prepared_pose = remove_rotation_from_axis(full_pose, axis=2)
+
+        regularised_pose = self(prepared_pose)
+
+        # add original z rotation back
+        output_pose = merge_global_orients_along_axis(full_pose, regularised_pose, axis=2)
+
+        return output_pose
     
     
 class VarenPoserTrainingExtension(VarenPoser):
