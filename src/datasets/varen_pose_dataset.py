@@ -4,7 +4,7 @@ import torch
 from pathlib import Path
 from torch.utils.data import Dataset
 from scipy.spatial.transform import Rotation as R
-from src.utils.rotation_tools import aa2matrot, matrot2aa, aa2euler, euler2aa
+from src.utils.rotation_tools import remove_rotation_from_axis
 
 
 class VarenMoCapData(Dataset):
