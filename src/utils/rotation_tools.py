@@ -26,6 +26,7 @@ import numpy as np
 import torch
 from .tgm_conversion import *
 from torch.nn import functional as F
+from scipy.spatial.transform import Rotation as R
 
 
 def local2global_pose(local_pose, kintree):
@@ -169,3 +170,10 @@ def batch_rigid_transform(rot_mats, joints, parents):
     posed_joints = transforms[:, :, :3, 3]
 
     return posed_joints
+
+
+def aa2euler(axis_angle, convention: str = "xyz"):
+    return R.from_matrix(aa2matrot(axis_angle)).as_euler(convention, degrees=False)
+
+def euler2aa(euler_angles, convention: str = "xyz"):
+    return torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())

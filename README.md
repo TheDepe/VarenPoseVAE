@@ -49,6 +49,19 @@ Additionally, pyglet may need to be installed and/or downgraded to a version <2.
 ## Downloading the Checkpoints
 Download of the checkpoint can be found [here](https://varen.is.tue.mpg.de/download.php). Please sign up / log in to download. The download can be found on the downloads page under VAREN Poser (VarenPoser.pth)
 
+
+## Example Usage
+
+Sampling
+```
+python -m example_scripts.sample_VAE --checkpoint /path/to/checkpoint.pth
+```
+
+Regularistion
+```
+python -m example_scripts.regularisation_example --checkpoint /path/to/checkpoint.pth
+```
+
 ## Contact
 
 The code of this repo was implemented by [Dennis Perrett](dennis.perrett@tuebingen.mpg.de).

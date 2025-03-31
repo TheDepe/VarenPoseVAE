@@ -80,13 +80,13 @@ class VarenPoser(nn.Module):
         """
         super(VarenPoser, self).__init__()
 
-        num_neurons, self.latentD = 512, 32
+        num_neurons, self.latentD = 512, 16 #32
         self.body_model = VAREN(varen_path)
         # Dont' train body model
         for param in self.body_model.parameters():
             param.requires_grad = False
 
-        self.num_joints = 37
+        self.num_joints = 37 + 1 # for global orient
         n_features = self.num_joints * 3
 
         self.encoder_net = nn.Sequential(
@@ -223,10 +223,17 @@ class VarenPoserTrainingExtension(VarenPoser):
         bs = dorig.shape[0]
         betas = torch.zeros(bs,39).to(dorig.device).float()
         transl = torch.zeros(bs,3).to(dorig.device).float()
-        gl_orien = torch.zeros(bs,3).to(dorig.device).float()
-    
-        mesh_orig = self.body_model(global_orient=gl_orien, body_pose=dorig.float(), transl=transl, betas=betas)
-        mesh_recon = self.body_model(global_orient=gl_orien, body_pose=drec['pose_body'].reshape(bs,-1).float(), transl=transl, betas=betas)
+        
+        full_pose_in = dorig.float()
+        full_pose_pred = drec['pose_body'].reshape(bs,-1).float()
+        go_in = full_pose_in[:, :3]
+        go_pred = full_pose_pred[:, :3]
+
+        pose_in = full_pose_in[:, 3:]
+        pose_pred = full_pose_pred[:, 3:]
+
+        mesh_orig = self.body_model(global_orient=go_in, body_pose=pose_in, transl=transl, betas=betas)
+        mesh_recon = self.body_model(global_orient=go_pred, body_pose=pose_pred, transl=transl, betas=betas)
 
         return mesh_orig, mesh_recon
 
