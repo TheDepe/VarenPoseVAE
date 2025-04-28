@@ -19,7 +19,7 @@
 #
 # Example usage:
 # NOTE: Script requires the follow structure to run, due to directory structure. 
-#     python -m examples.sample_VAE --num_samples 5 --save_samples --temperature 1.5
+#     python -m example_scripts.sample_VAE --num_samples 5 --save_samples --temperature 1.5
 #
 # Dependencies:
 #     - torch
@@ -56,9 +56,10 @@ def main():
     args = parse_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    shape = torch.randn(args.num_samples, 39).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
     poses = generate_poses(model, args.num_samples, args.temperature, device)
-    scene = create_meshes(model, poses, device)
+    scene = create_meshes(model, poses, device, shape=shape)
 
     if args.save_samples:
         save_samples(poses, scene)

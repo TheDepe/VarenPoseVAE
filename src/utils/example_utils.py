@@ -40,7 +40,12 @@ def generate_poses(model: VarenPoser, num_samples: int, temperature: float, devi
     return poses.to(device)
 
 
-def create_meshes(model: VarenPoser, poses: torch.Tensor, device: str, colours: Union[np.ndarray, List]=None) -> list:
+def create_meshes(
+        model: VarenPoser,
+        poses: torch.Tensor,
+        device: str,
+        colours: Union[np.ndarray, List] = None,
+        shape: torch.Tensor = None) -> list:
     """Creates 3D meshes from generated poses.
     
     Args:
@@ -53,7 +58,9 @@ def create_meshes(model: VarenPoser, poses: torch.Tensor, device: str, colours: 
         list: List of trimesh meshes representing the generated poses.
     """
     n_poses = poses.shape[0]
-    shape = torch.zeros(n_poses, 39).to(device)
+    if shape is None:
+        shape = torch.zeros(n_poses, 39).to(device)
+
     #global_orient = torch.zeros(n_poses, 3).to(device)
     transl = torch.zeros(n_poses, 3).to(device)
 

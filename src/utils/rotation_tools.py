@@ -193,11 +193,10 @@ def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: st
         torch.Tensor: The modified pose tensor with the specified axis rotation removed.
     """
     global_orient = full_pose[:, :3]
-    euler_angles = aa2euler(global_orient) #R.from_matrix(aa2matrot(global_orient)).as_euler(convention, degrees=False)
+    euler_angles = aa2euler(global_orient, convention=convention) #R.from_matrix(aa2matrot(global_orient)).as_euler(convention, degrees=False)
     euler_angles[:,axis] = 0 # remove plane rotation
 
-    global_orient = euler2aa(euler_angles) #torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
-    global_orient = matrot2aa(global_orient)
+    global_orient = euler2aa(euler_angles, convention=convention) #torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
     
     full_pose[:, :3] = global_orient
     return full_pose
