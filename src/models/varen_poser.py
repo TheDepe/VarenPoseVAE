@@ -81,7 +81,7 @@ class VarenPoser(nn.Module):
         encoder_net (nn.Sequential): The network for encoding poses.
         decoder_net (nn.Sequential): The network for decoding poses.
     """
-    def __init__(self, varen_path, **kwargs):
+    def __init__(self, **kwargs):
         """
         Initialise the VarenPoser model.
 
