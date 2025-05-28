@@ -28,8 +28,8 @@ from torch.nn import functional as F
 from varen import VAREN
 
 from .model_components import BatchFlatten
-from src.utils.angle_continuous_repres import geodesic_loss_R
-from src.utils.rotation_tools import (
+from varen_poser.utils.angle_continuous_repres import geodesic_loss_R
+from varen_poser.utils.rotation_tools import (
     matrot2aa,
     aa2matrot,
     remove_rotation_from_axis,

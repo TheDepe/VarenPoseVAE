@@ -25,7 +25,7 @@
 #     - torch
 #     - argparse
 #     - trimesh
-#     - src.utils.example_utils (for helper functions)
+#     - varen_poser.utils.example_utils (for helper functions)
 #
 # Author: Dennis Perrett
 
@@ -33,7 +33,7 @@ import torch
 import argparse
 import trimesh
 from varen import VAREN
-from src.utils.example_utils import (load_model, 
+from varen_poser.utils.example_utils import (load_model, 
                                     generate_poses, 
                                     create_meshes, 
                                     save_samples)

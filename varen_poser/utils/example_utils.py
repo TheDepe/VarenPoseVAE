@@ -3,7 +3,7 @@ import trimesh
 import numpy as np
 
 from pathlib import Path
-from src.models.varen_poser import VarenPoser
+from varen_poser.models.varen_poser import VarenPoser
 from typing import Union, List
 from varen import VAREN
 

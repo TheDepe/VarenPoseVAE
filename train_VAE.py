@@ -6,9 +6,9 @@ import trimesh
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
-from src.models.varen_poser import VarenPoserTrainingExtension
-from src.utils.logger import *
-from src.datasets.varen_pose_dataset import VarenMoCapData
+from varen_poser.models.varen_poser import VarenPoserTrainingExtension
+from varen_poser.utils.logger import *
+from varen_poser.datasets.varen_pose_dataset import VarenMoCapData
 
 # --------------------------------------------------------------------------------------------------
 # Arguments

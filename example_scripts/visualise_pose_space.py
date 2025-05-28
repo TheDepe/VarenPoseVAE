@@ -27,7 +27,7 @@
 #     - trimesh
 #     - numpy
 #     - pathlib
-#     - src.utils.example_utils (for helper functions)
+#     - varen_poser.utils.example_utils (for helper functions)
 #
 #
 # Author: Dennis Perrett
@@ -39,7 +39,7 @@ import numpy as np
 from varen import VAREN
 from pathlib import Path
 
-from src.utils.example_utils import load_model
+from varen_poser.utils.example_utils import load_model
 
 
 def parse_arguments():
