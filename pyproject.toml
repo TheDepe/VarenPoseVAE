@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "VarenPoseVAE"
 version = "1.1.0"
 description = "Your submodule description here"
-authors = "Dennis Perrett"
+authors = ["Dennis Perrett"]
 dependencies = [
     "pyglet<2.0",
     "torch",
