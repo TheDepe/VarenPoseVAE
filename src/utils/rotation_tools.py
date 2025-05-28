@@ -631,19 +631,20 @@ def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: st
         full_pose (torch.Tensor): A tensor of shape (batch_size, pose_dim) representing full body pose,
                                   where the first 3 values correspond to global orientation in axis-angle format.
         axis (int): The index of the rotation axis to be zeroed (0 for X, 1 for Y, 2 for Z).
-        convention (str, optional): The Euler angle convention used for conversion. Defaults to 'xyz'.
+        convention (str, optional): The Euler angle convention used for conversion. Defaults to 'XYZ'.
 
     Returns:
         torch.Tensor: The modified pose tensor with the specified axis rotation removed.
     """
-    global_orient = full_pose[:, :3]
-    euler_angles = aa2euler(global_orient, convention=convention) #R.from_matrix(aa2matrot(global_orient)).as_euler(convention, degrees=False)
-    euler_angles[:,axis] = 0 # remove plane rotation
+    global_orient = full_pose[:, :3]  # (B, 3)
+    euler_angles = aa2euler(global_orient, convention=convention)  # (B, 3)
+    euler_angles[:, axis] = 0.0  # Remove rotation around the specified axis
+    global_orient = euler2aa(euler_angles, convention=convention)  # (B, 3)
 
-    global_orient = euler2aa(euler_angles, convention=convention) #torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
-    
-    full_pose[:, :3] = global_orient
-    return full_pose
+    # Create new pose with updated global orientation
+    full_pose_modified = full_pose.clone()
+    full_pose_modified[:, :3] = global_orient
+    return full_pose_modified
 
 def merge_global_orients_along_axis(additional: torch.Tensor, base: torch.Tensor, axis: int) -> torch.Tensor:
     """
@@ -657,16 +658,18 @@ def merge_global_orients_along_axis(additional: torch.Tensor, base: torch.Tensor
     Returns:
         torch.Tensor: A new tensor with the modified global orientation.
     """
-    base = base.clone()
+    
     base_global_orient = base[:, :3] # full_pose -> GO
     addi_global_orient = additional[:, :3] # full pose -> GO
-
+    
     base_euler_angles = aa2euler(base_global_orient)
     addi_euler_angles = aa2euler(addi_global_orient)
 
     base_euler_angles[:, axis] = addi_euler_angles[:, axis]
 
     merged_global_orient = euler2aa(base_euler_angles)
-    base[:, :3] = merged_global_orient
+    
+    base_clone = base.clone()
+    base_clone[:, :3] = merged_global_orient
 
-    return base
+    return base_clone
