@@ -225,7 +225,7 @@ class VarenPoser(nn.Module):
         # remove go z rotation
         prepared_pose = remove_rotation_from_axis(full_pose, axis=2)
 
-        regularised_pose = self(prepared_pose)['body_pose']
+        regularised_pose = self(prepared_pose)['pose_body']
 
         # add original z rotation back
         output_pose = merge_global_orients_along_axis(
