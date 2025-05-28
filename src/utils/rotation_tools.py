@@ -557,20 +557,20 @@ def euler_angles_to_matrix(euler_angles: torch.Tensor, convention: str) -> torch
     # return functools.reduce(torch.matmul, matrices)
     return torch.matmul(torch.matmul(matrices[0], matrices[1]), matrices[2])
 
-def aa2euler(axis_angle, convention: str = "xyz"):
+def aa2euler(axis_angle, convention: str = "XYZ"):
     return matrix_to_euler_angles(
         axis_angle_to_matrix(axis_angle),
         convention=convention
     )
     #return R.from_matrix(aa2matrot(axis_angle)).as_euler(convention, degrees=False)
 
-def euler2aa(euler_angles, convention: str = "xyz"):
+def euler2aa(euler_angles, convention: str = "XYZ"):
     rot_mats = euler_angles_to_matrix(euler_angles, convention=convention)
     return rotation_matrix_to_angle_axis(rot_mats)
     #return torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
 
 
-def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: str = 'xyz') -> torch.Tensor:
+def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: str = 'XYZ') -> torch.Tensor:
     """
     Removes rotation around a specified axis from the global orient of a full pose represented in axis-angle format.
 
