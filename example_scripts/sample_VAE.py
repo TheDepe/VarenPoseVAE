@@ -32,7 +32,7 @@
 import torch
 import argparse
 import trimesh
-
+from varen import VAREN
 from src.utils.example_utils import (load_model, 
                                     generate_poses, 
                                     create_meshes, 
@@ -58,8 +58,9 @@ def main():
 
     shape = torch.randn(args.num_samples, 39).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
+    varen = VAREN(args.varen_model_path).to(device)
     poses = generate_poses(model, args.num_samples, args.temperature, device)
-    scene = create_meshes(model, poses, device, shape=shape)
+    scene = create_meshes(varen, poses, device, shape=shape)
 
     if args.save_samples:
         save_samples(poses, scene)

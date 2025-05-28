@@ -32,7 +32,7 @@
 import torch
 import argparse
 import trimesh
-
+from varen import VAREN
 from src.utils.example_utils import (load_model, 
                                     generate_poses, 
                                     create_meshes, 
@@ -54,15 +54,15 @@ def main():
     """Main function that runs the pose generation pipeline."""
     args = parse_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+    varen = VAREN(args.varen_model_path).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    NUM_JOINTS = model.body_model.NUM_JOINTS
+    NUM_JOINTS = model.num_joints
     poses_input = (torch.rand(args.num_samples, NUM_JOINTS * 3, device=device) - 0.5) * .8
     regularised_poses = model(poses_input)['pose_body'].reshape(args.num_samples, -1)
     
     colours = (torch.rand(args.num_samples,3) * 255).byte().cpu().numpy()
-    raw_meshs = create_meshes(model, poses_input, device, colours)
-    final_meshs = create_meshes(model, regularised_poses, device, colours*.5)
+    raw_meshs = create_meshes(varen, poses_input, device, colours)
+    final_meshs = create_meshes(varen, regularised_poses, device, colours*.5)
     for mesh in final_meshs:
         mesh.vertices += [0,0,-2.5]
     

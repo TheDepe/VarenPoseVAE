@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 from src.models.varen_poser import VarenPoser
 from typing import Union, List
+from varen import VAREN
 
 def load_model(varen_model_path: str, checkpoint_path: str, device: str) -> VarenPoser:
     """Loads the VAREN model and checkpoint weights.
@@ -41,7 +42,7 @@ def generate_poses(model: VarenPoser, num_samples: int, temperature: float, devi
 
 
 def create_meshes(
-        model: VarenPoser,
+        model: VAREN,
         poses: torch.Tensor,
         device: str,
         colours: Union[np.ndarray, List] = None,
@@ -64,7 +65,7 @@ def create_meshes(
     #global_orient = torch.zeros(n_poses, 3).to(device)
     transl = torch.zeros(n_poses, 3).to(device)
 
-    vertices = model.body_model(body_pose=poses[:,3:], betas=shape, transl=transl, global_orient=poses[:,:3]).vertices
+    vertices = model(body_pose=poses[:,3:], betas=shape, transl=transl, global_orient=poses[:,:3]).vertices
 
     scene = []
     offset_step = 2.0
@@ -75,7 +76,7 @@ def create_meshes(
     for i, horse in enumerate(vertices):
         offset = np.array([0, i * offset_step, 0])
         horse_np = horse.detach().cpu().numpy() + offset
-        mesh = trimesh.Trimesh(vertices=horse_np, faces=model.body_model.faces)
+        mesh = trimesh.Trimesh(vertices=horse_np, faces=model.faces)
         mesh.visual.vertex_colors = np.tile(np.append(colours[i], 255), (horse_np.shape[0], 1))
 
         scene.append(mesh)

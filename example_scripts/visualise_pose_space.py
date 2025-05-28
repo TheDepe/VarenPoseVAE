@@ -36,7 +36,7 @@ import torch
 import argparse
 import trimesh
 import numpy as np
-
+from varen import VAREN
 from pathlib import Path
 
 from src.utils.example_utils import load_model
@@ -96,7 +96,7 @@ def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
     with torch.no_grad():
         return model.decode(latent_tensor)
 
-def visualize_and_export_horses(poses, model, out_folder="samples"):
+def visualize_and_export_horses(poses, model: VAREN, out_folder="samples"):
     """
     Visualize and export the 96 horses as trimesh objects with naming convention based on latent dimensions.
     
@@ -115,10 +115,12 @@ def visualize_and_export_horses(poses, model, out_folder="samples"):
 
     # Generate the 3D mesh for the modified pose
     shape = torch.zeros(num_poses, 39).to(poses.device)  
-    global_orient = torch.zeros(num_poses, 3).to(poses.device)  
-    transl = torch.zeros(num_poses, 3).to(poses.device)  
+    global_orient = poses[:, :3]
+    body_pose = poses[:, 3:]  
+    transl = torch.zeros(num_poses, 3).to(poses.device) 
+    print(f"DEBUG || poses shape {poses.shape}")
 
-    vertices = model.body_model(body_pose=poses, betas=shape, transl=transl, global_orient=global_orient).vertices
+    vertices = model(body_pose=body_pose, betas=shape, transl=transl, global_orient=global_orient).vertices
 
     file_names = []
 
@@ -131,7 +133,7 @@ def visualize_and_export_horses(poses, model, out_folder="samples"):
     for file_name, horse in zip(file_names,vertices):
         horse_np = horse.detach().cpu().numpy()
 
-        mesh = trimesh.Trimesh(vertices=horse_np, faces=model.body_model.faces)
+        mesh = trimesh.Trimesh(vertices=horse_np, faces=model.faces)
         mesh.export(out_folder / f"{file_name}.ply")
         print(f"Exported: {file_name}.ply")
 
@@ -141,11 +143,11 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
-
+    varen = VAREN(args.varen_model_path).to(device)
     poses = sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None)['pose_body']
     poses = poses.reshape(poses.shape[0], -1)
  
-    visualize_and_export_horses(poses, model)
+    visualize_and_export_horses(poses, varen)
 
 
 if __name__ == "__main__":
