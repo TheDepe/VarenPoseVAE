@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "VarenPoseVAE"
+version = "1.1.0"
+description = "Your submodule description here"
+authors = "Dennis Perrett"
+dependencies = [
+    "pyglet<2.0",
+    "torch",
+    "tqdm",
+    "trimesh",
+    "varen",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
