@@ -557,16 +557,69 @@ def euler_angles_to_matrix(euler_angles: torch.Tensor, convention: str) -> torch
     # return functools.reduce(torch.matmul, matrices)
     return torch.matmul(torch.matmul(matrices[0], matrices[1]), matrices[2])
 
-def aa2euler(axis_angle, convention: str = "XYZ"):
-    return matrix_to_euler_angles(
-        axis_angle_to_matrix(axis_angle),
-        convention=convention
+def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tensor:
+    """
+    Convert rotations given as rotation matrices to axis/angle.
+
+    Args:
+        matrix: Rotation matrices as tensor of shape (..., 3, 3).
+        fast: Whether to use the new faster implementation (based on the
+            Rodrigues formula) instead of the original implementation (which
+            first converted to a quaternion and then back to a rotation matrix).
+
+    Returns:
+        Rotations given as a vector in axis angle form, as a tensor
+            of shape (..., 3), where the magnitude is the angle
+            turned anticlockwise in radians around the vector's
+            direction.
+
+    """
+    if not fast:
+        return quaternion_to_axis_angle(matrix_to_quaternion(matrix))
+
+    if matrix.size(-1) != 3 or matrix.size(-2) != 3:
+        raise ValueError(f"Invalid rotation matrix shape {matrix.shape}.")
+
+    omegas = torch.stack(
+        [
+            matrix[..., 2, 1] - matrix[..., 1, 2],
+            matrix[..., 0, 2] - matrix[..., 2, 0],
+            matrix[..., 1, 0] - matrix[..., 0, 1],
+        ],
+        dim=-1,
     )
+    norms = torch.norm(omegas, p=2, dim=-1, keepdim=True)
+    traces = torch.diagonal(matrix, dim1=-2, dim2=-1).sum(-1).unsqueeze(-1)
+    angles = torch.atan2(norms, traces - 1)
+
+    zeros = torch.zeros(3, dtype=matrix.dtype, device=matrix.device)
+    omegas = torch.where(torch.isclose(angles, torch.zeros_like(angles)), zeros, omegas)
+
+    near_pi = angles.isclose(angles.new_full((1,), torch.pi)).squeeze(-1)
+
+    axis_angles = torch.empty_like(omegas)
+    axis_angles[~near_pi] = (
+        0.5 * omegas[~near_pi] / torch.sinc(angles[~near_pi] / torch.pi)
+    )
+
+    # this derives from: nnT = (R + 1) / 2
+    n = 0.5 * (
+        matrix[near_pi][..., 0, :]
+        + torch.eye(1, 3, dtype=matrix.dtype, device=matrix.device)
+    )
+    axis_angles[near_pi] = angles[near_pi] * n / torch.norm(n)
+
+    return axis_angles
+
+def aa2euler(axis_angle, convention: str = "XYZ"):
+    rot_mats = axis_angle_to_matrix(axis_angle) 
+    return matrix_to_euler_angles(rot_mats, convention=convention)
     #return R.from_matrix(aa2matrot(axis_angle)).as_euler(convention, degrees=False)
 
 def euler2aa(euler_angles, convention: str = "XYZ"):
+
     rot_mats = euler_angles_to_matrix(euler_angles, convention=convention)
-    return rotation_matrix_to_angle_axis(rot_mats)
+    return matrix_to_axis_angle(rot_mats)
     #return torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
 
 
