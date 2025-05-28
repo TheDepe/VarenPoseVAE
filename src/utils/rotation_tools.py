@@ -659,7 +659,7 @@ def merge_global_orients_along_axis(additional: torch.Tensor, base: torch.Tensor
     """
     base = base.clone()
     base_global_orient = base[:, :3] # full_pose -> GO
-    addi_global_orient = additional[:, 3] # full pose -> GO
+    addi_global_orient = additional[:, :3] # full pose -> GO
 
     base_euler_angles = aa2euler(base_global_orient)
     addi_euler_angles = aa2euler(addi_global_orient)
