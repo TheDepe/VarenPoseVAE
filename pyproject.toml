@@ -3,10 +3,10 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "VarenPoseVAE"
-version = "1.1.0"
-description = "Your submodule description here"
-authors = ["Dennis Perrett"]
+name = "varen_poser"
+version = "1.0.0"
+description = "VAE-Base pose prior for VAREN model."
+authors = [{ name = "Dennis Perrett"}]
 dependencies = [
     "pyglet<2.0",
     "torch",
