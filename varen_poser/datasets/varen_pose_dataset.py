@@ -3,7 +3,6 @@ from tqdm import tqdm
 import torch
 from pathlib import Path
 from torch.utils.data import Dataset
-from scipy.spatial.transform import Rotation as R
 from varen_poser.utils.rotation_tools import remove_rotation_from_axis
 
 
@@ -49,7 +48,7 @@ class VarenMoCapData(Dataset):
             full_pose = remove_rotation_from_axis(full_pose, axis=2).double().numpy()
 
             self.poses.append(full_pose)
-            break
+  
         self.poses = np.concatenate(self.poses, axis=0)
 
         print(f"Found {len(self)} poses, across {len(pose_files)} files.")
@@ -60,3 +59,36 @@ class VarenMoCapData(Dataset):
     def __getitem__(self, idx):
         return self.poses[idx]
     
+
+class VarenMuscles(Dataset):
+    """
+
+    """
+    def __init__(self, data_dir, **kwargs):
+        self.data_dir = Path(data_dir)
+        if not self.data_dir.exists():
+            raise FileNotFoundError(f"Data directory {self.data_dir} does not exist")
+        
+        pose_files = list(self.data_dir.rglob('*_solution.npy'))
+        
+        self.poses = []
+
+        for file in tqdm(pose_files):
+            
+            data = np.load(file, allow_pickle=True)
+
+            full_pose = data[3:117]
+
+            full_pose = torch.Tensor(full_pose).unsqueeze(0)
+            full_pose = remove_rotation_from_axis(full_pose, axis=2).double().numpy()
+
+            self.poses.append(full_pose)
+        self.poses = np.concatenate(self.poses, axis=0)
+
+        print(f"Found {len(self)} poses, across {len(pose_files)} files.")
+
+    def __len__(self):
+        return len(self.poses)
+    
+    def __getitem__(self, idx):
+        return self.poses[idx]

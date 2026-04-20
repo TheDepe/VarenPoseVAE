@@ -3,12 +3,12 @@ import torch
 import argparse
 import trimesh
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim import Adam
 
 from varen_poser.models.varen_poser import VarenPoserTrainingExtension
 from varen_poser.utils.logger import *
-from varen_poser.datasets.varen_pose_dataset import VarenMoCapData
+from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
 
 # --------------------------------------------------------------------------------------------------
 # Arguments
@@ -16,10 +16,10 @@ from varen_poser.datasets.varen_pose_dataset import VarenMoCapData
 parser = argparse.ArgumentParser()
 
 # Model arguments
-parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
+parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data2/VAREN/models/VAREN")
 
 # Datasets and loaders
-parser.add_argument('--dataset_path', type=str, default='/ps/project/horses_in_motion/VARENset_subset') #'./data/shapenet.hdf5')
+parser.add_argument('--dataset_path', type=str, default='smb://ps-access.is.localnet/project/horses_in_motion/VARENset_subset') #'./data/shapenet.hdf5')
 parser.add_argument('--train_batch_size', type=int, default=2048)
 parser.add_argument('--val_batch_size', type=int, default=512)
 parser.add_argument('--checkpoint', type=str, default=None, help="Path to checkpoint file")
@@ -41,8 +41,10 @@ logger = create_logger("VAE Trainer", log_dir)
 
 logger.info('[Initialisation] Loading Datasets...')
 
-train_data = VarenMoCapData("/home/dperrett/Documents/Data/VAREN/From Ci")
+train_data_mocap = VarenMoCapData("/home/dperrett/Documents/horse_project/Repos/VAREN-Toolbox/data/VAREN/From Ci")
+train_data_muscles = VarenMuscles("/home/dperrett/Documents/horse_project/Repos/VAREN-Toolbox/data/VAREN/varen_train_data/orig_scans/registrations")
 
+train_data = ConcatDataset([train_data_mocap, train_data_muscles])
 dataloader_train = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True)
 device = 'cuda'
 

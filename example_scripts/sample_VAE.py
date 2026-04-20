@@ -42,8 +42,8 @@ from varen_poser.utils.example_utils import (load_model,
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
-    parser.add_argument('--checkpoint_path', type=str, default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth")
+    parser.add_argument('--varen_model_path', type=str, default="/ssd-disk/data_ssd/VAREN/models/VAREN")
+    parser.add_argument('--checkpoint_path', type=str, default="/ssd-disk/data_ssd/VAREN/models/VarenPoser/VarenPoser2_0.pth")
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_samples', action='store_true')
     parser.add_argument('--temperature', type=float, default=1.0)
@@ -57,15 +57,20 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     shape = torch.randn(args.num_samples, 39).to(device)
+    std = torch.ones(39, device=device) * 0.5   # small variance for most
+    std[:2] = 1.5                               # large variance for first two
+
+    # scale accordingly
+    shape = shape * std
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    varen = VAREN(args.varen_model_path).to(device)
+    varen = VAREN(args.varen_model_path, use_muscle_deformations=False).to(device)
     poses = generate_poses(model, args.num_samples, args.temperature, device)
     scene = create_meshes(varen, poses, device, shape=shape)
 
     if args.save_samples:
         save_samples(poses, scene)
 
-    trimesh.Scene(scene).show()
+    #trimesh.Scene(scene).show()
 
 
 if __name__ == "__main__":

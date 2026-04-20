@@ -91,7 +91,7 @@ class VarenPoser(nn.Module):
         """
         super(VarenPoser, self).__init__()
 
-        num_neurons, self.latentD = 512, 16 #32
+        num_neurons, self.latentD = 512, 32
 
         self.num_joints = 37 + 1 # for global orient
         n_features = self.num_joints * 3
@@ -258,7 +258,7 @@ class VarenPoserTrainingExtension(VarenPoser):
             varen_path (str): Path to the pre-trained VAREN model.
             **kwargs: Additional arguments.
         """
-        super().__init__(varen_path, **kwargs)
+        super().__init__(**kwargs)
         self.body_model = VAREN(varen_path)
         # Dont' train body model
         for param in self.body_model.parameters():
