@@ -17,7 +17,7 @@ import torch
 
 from varen_poser.models.pose_prior import QuadrupedPosePrior
 from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
-from varen_poser.utils.rotation_tools import (
+from varen_poser.utils.pose_transforms import (
     remove_rotation_from_axis,
     merge_global_orients_along_axis,
     aa2matrot,
@@ -171,7 +171,7 @@ class TestRegularisePose:
 
     def test_regularise_pose_z_rotation_preserved(self, model):
         """Global z-rotation should be unchanged after regularisation."""
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         pose = random_pose()
         out  = model.regularise_pose(pose)
 
@@ -205,7 +205,7 @@ class TestVarenMoCapData:
 
     def test_z_rotation_zeroed(self, tmp_path):
         """Dataset pre-processes poses by zeroing z-rotation."""
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         make_mocap_dir(tmp_path, n_files=1, frames_per_file=8)
         ds = VarenMoCapData(tmp_path)
         poses = torch.tensor(ds.poses)
@@ -241,7 +241,7 @@ class TestVarenMuscles:
         assert sample.shape == (POSE_DIM,)
 
     def test_z_rotation_zeroed(self, tmp_path):
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         make_muscles_dir(tmp_path, n_files=2)
         ds = VarenMuscles(tmp_path)
         poses = torch.tensor(ds.poses)
@@ -258,7 +258,7 @@ class TestRotationTools:
     def test_remove_z_rotation_zeroes_z(self):
         pose = torch.randn(BATCH, POSE_DIM)
         out  = remove_rotation_from_axis(pose, axis=2)
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         z = aa2euler(out[:, :3])[:, 2]
         assert torch.allclose(z, torch.zeros_like(z), atol=1e-5)
 
@@ -277,7 +277,7 @@ class TestRotationTools:
     def test_merge_global_orients_copies_axis(self):
         """merge_global_orients_along_axis should copy the z-component of
         `additional` into `base`."""
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         additional = torch.randn(BATCH, POSE_DIM)
         base       = torch.randn(BATCH, POSE_DIM)
         out        = merge_global_orients_along_axis(additional, base, axis=2)
@@ -311,7 +311,7 @@ class TestRotationTools:
     def test_remove_then_merge_roundtrip(self):
         """remove_rotation_from_axis followed by merge_global_orients_along_axis
         should restore the original z-rotation."""
-        from varen_poser.utils.rotation_tools import aa2euler
+        from varen_poser.utils.pose_transforms import aa2euler
         pose = torch.randn(BATCH, POSE_DIM)
         stripped = remove_rotation_from_axis(pose, axis=2)
         restored = merge_global_orients_along_axis(pose, stripped, axis=2)

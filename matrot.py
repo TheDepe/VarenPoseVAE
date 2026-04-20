@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from varen_poser.utils.rotation_tools import aa2matrot, matrot2aa
+from varen_poser.utils.pose_transforms import aa2matrot, matrot2aa
 from scipy.spatial.transform import Rotation as R
 
 

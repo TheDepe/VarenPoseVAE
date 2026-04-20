@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim import Adam
 
 from varen_poser.models.trainer import QuadrupedPosePriorTrainer
-from varen_poser.utils.logger import *
+from varen_poser.utils.logging_utils import create_logger, get_new_log_dir
 from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
 
 # --------------------------------------------------------------------------------------------------

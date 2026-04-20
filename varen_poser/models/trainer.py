@@ -3,8 +3,8 @@ from torch import nn
 from varen import VAREN
 
 from .pose_prior import QuadrupedPosePrior
-from varen_poser.utils.angle_continuous_repres import geodesic_loss_R
-from varen_poser.utils.rotation_tools import aa2matrot
+from varen_poser.utils.losses import GeodesicRotationLoss
+from varen_poser.utils.pose_transforms import aa2matrot
 
 
 class QuadrupedPosePriorTrainer(QuadrupedPosePrior):
@@ -71,7 +71,7 @@ class QuadrupedPosePriorTrainer(QuadrupedPosePrior):
             Dict with keys ``weighted_loss`` and ``unweighted_loss``.
         """
         l1_loss       = nn.L1Loss(reduction='mean')
-        geodesic_loss = geodesic_loss_R(reduction='mean')
+        geodesic_loss = GeodesicRotationLoss(reduction='mean')
 
         bs, latentD = pose_pred['poZ_body_mean'].shape
         device      = pose_pred['poZ_body_mean'].device

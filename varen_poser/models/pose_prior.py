@@ -3,7 +3,7 @@ import numpy as np
 from torch import nn
 
 from .components import BatchFlatten, OrthoRotDecoder, LatentDistHead
-from varen_poser.utils.rotation_tools import (
+from varen_poser.utils.pose_transforms import (
     matrot2aa,
     remove_rotation_from_axis,
     merge_global_orients_along_axis,
