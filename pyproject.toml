@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "varen_poser"
+name = "quadruped_poser"
 version = "1.0.0"
-description = "VAE-Base pose prior for VAREN model."
+description = "VAE-based pose prior for quadruped body models."
 authors = [{ name = "Dennis Perrett"}]
 dependencies = [
     "pyglet<2.0",

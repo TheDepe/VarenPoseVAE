@@ -5,6 +5,8 @@ A Taylor approximation is applied near the origin (small-angle case) to
 avoid division by zero.
 """
 
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,13 +15,32 @@ import torch.nn.functional as F
 def angle_axis_to_rotation_matrix(angle_axis: torch.Tensor) -> torch.Tensor:
     """Convert a batch of axis-angle vectors to 4×4 rotation matrices.
 
+    Each axis-angle vector encodes a rotation whose direction is the unit
+    axis of rotation and whose magnitude is the rotation angle in radians.
+    The upper-left 3×3 block of the output is the SO(3) rotation matrix
+    computed via the Rodrigues formula; the bottom row and right column
+    form the homogeneous padding ``[0, 0, 0, 1]``.
+
+    For vectors whose squared norm falls below ``eps = 1e-6`` a first-order
+    Taylor expansion is used instead of the full Rodrigues formula to avoid
+    numerical instability near the identity.
+
     Args:
-        angle_axis: Tensor of shape (N, 3).
+        angle_axis: Axis-angle vectors of shape ``(N, 3)``.  The magnitude
+            of each row encodes the rotation angle in radians.
 
     Returns:
-        Tensor of shape (N, 4, 4).
+        Homogeneous rotation matrices of shape ``(N, 4, 4)``.  The
+        translation column is zero and the bottom row is
+        ``[0, 0, 0, 1]``.
+
+    Note:
+        Rodrigues formula:
+        ``R = I cos θ + (1 − cos θ) w wᵀ + sin θ [w]×``
+        where ``w = v / ‖v‖`` and ``θ = ‖v‖``.
     """
-    def _rodrigues(aa, theta2, eps=1e-6):
+    def _rodrigues(aa: torch.Tensor, theta2: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+        """Apply the full Rodrigues rotation formula element-wise."""
         theta = torch.sqrt(theta2)
         wxyz = aa / (theta + eps)
         wx, wy, wz = torch.chunk(wxyz, 3, dim=1)
@@ -30,7 +51,8 @@ def angle_axis_to_rotation_matrix(angle_axis: torch.Tensor) -> torch.Tensor:
         r20 = -wy*s + wx*wz*(k-c);  r21 = wx*s + wy*wz*(k-c);  r22 = c + wz*wz*(k-c)
         return torch.cat([r00, r01, r02, r10, r11, r12, r20, r21, r22], dim=1).view(-1, 3, 3)
 
-    def _taylor(aa):
+    def _taylor(aa: torch.Tensor) -> torch.Tensor:
+        """Apply the first-order Taylor approximation for small angles."""
         rx, ry, rz = torch.chunk(aa, 3, dim=1)
         one = torch.ones_like(rx)
         return torch.cat([one, -rz, ry, rz, one, -rx, -ry, rx, one], dim=1).view(-1, 3, 3)
@@ -53,11 +75,19 @@ def angle_axis_to_rotation_matrix(angle_axis: torch.Tensor) -> torch.Tensor:
 def rotation_matrix_to_angle_axis(rotation_matrix: torch.Tensor) -> torch.Tensor:
     """Convert a batch of 3×4 rotation matrices to axis-angle vectors.
 
+    This is a two-step conversion: the rotation matrix is first mapped to
+    a unit quaternion via :func:`rotation_matrix_to_quaternion`, and the
+    quaternion is then converted to an axis-angle vector via
+    :func:`quaternion_to_angle_axis`.
+
     Args:
-        rotation_matrix: Tensor of shape (N, 3, 4).
+        rotation_matrix: Rotation matrices of shape ``(N, 3, 4)``.  The
+            fourth column (translation) is ignored.
 
     Returns:
-        Tensor of shape (N, 3).
+        Axis-angle vectors of shape ``(N, 3)``.  The direction of each
+        vector is the rotation axis and its magnitude is the rotation
+        angle in radians.
     """
     quaternion = rotation_matrix_to_quaternion(rotation_matrix)
     return quaternion_to_angle_axis(quaternion)
@@ -66,11 +96,29 @@ def rotation_matrix_to_angle_axis(rotation_matrix: torch.Tensor) -> torch.Tensor
 def rotation_matrix_to_quaternion(rotation_matrix: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """Convert a batch of 3×4 rotation matrices to quaternions (w, x, y, z).
 
+    The algorithm selects one of four numerically stable branches depending
+    on which diagonal entry of the rotation matrix is largest, following
+    Shepperd's method.  Each branch produces a quaternion proportional to
+    the correct result; the quaternion is then normalised and scaled to
+    unit length.
+
     Args:
-        rotation_matrix: Tensor of shape (N, 3, 4).
+        rotation_matrix: Rotation matrices of shape ``(N, 3, 4)``.  The
+            fourth column is ignored.
+        eps: Small constant used for the diagonal comparison that selects
+            the stable branch.  Defaults to ``1e-6``.
 
     Returns:
-        Tensor of shape (N, 4).
+        Unit quaternions of shape ``(N, 4)`` in ``(w, x, y, z)`` order.
+
+    Raises:
+        TypeError: If ``rotation_matrix`` is not a ``torch.Tensor``.
+        ValueError: If ``rotation_matrix`` does not have shape ``(N, 3, 4)``.
+
+    Note:
+        Shepperd's method guarantees that the selected branch always divides
+        by a quantity of magnitude ``≥ 1``, avoiding catastrophic
+        cancellation.
     """
     if not torch.is_tensor(rotation_matrix):
         raise TypeError(f"Expected torch.Tensor, got {type(rotation_matrix)}")
@@ -115,11 +163,30 @@ def rotation_matrix_to_quaternion(rotation_matrix: torch.Tensor, eps: float = 1e
 def quaternion_to_angle_axis(quaternion: torch.Tensor) -> torch.Tensor:
     """Convert quaternions (w, x, y, z) to axis-angle vectors.
 
+    Given a unit quaternion ``q = (cos(θ/2), sin(θ/2) * w)`` the
+    corresponding axis-angle vector is ``θ * w``, where ``w`` is the unit
+    rotation axis and ``θ ∈ [0, π]`` is the rotation angle.  A numerically
+    stable ``atan2``-based formula is used to recover ``θ``, and a
+    degenerate branch handles the case ``sin(θ/2) ≈ 0`` (near-identity
+    rotation) by replacing the division with the limit value ``2``.
+
     Args:
-        quaternion: Tensor of shape (*, 4).
+        quaternion: Unit quaternions of arbitrary batch shape ``(*, 4)``
+            in ``(w, x, y, z)`` order.
 
     Returns:
-        Tensor of shape (*, 3).
+        Axis-angle vectors of shape ``(*, 3)``.  The magnitude of each
+        vector equals the rotation angle in radians.
+
+    Raises:
+        ValueError: If ``quaternion`` is not a ``torch.Tensor`` with last
+            dimension equal to 4.
+
+    Note:
+        The scaling factor is
+        ``k = 2 θ / sin(θ/2)``
+        which approaches ``2`` as ``θ → 0``, ensuring a smooth and
+        differentiable map through the identity rotation.
     """
     if not torch.is_tensor(quaternion) or quaternion.shape[-1] != 4:
         raise ValueError(f"Expected Tensor of shape (*, 4), got {getattr(quaternion, 'shape', type(quaternion))}")

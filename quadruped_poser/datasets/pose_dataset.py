@@ -3,7 +3,7 @@ from tqdm import tqdm
 import torch
 from pathlib import Path
 from torch.utils.data import Dataset
-from varen_poser.utils.pose_transforms import remove_rotation_from_axis
+from quadruped_poser.utils.pose_transforms import remove_rotation_from_axis
 
 
 class VarenMoCapData(Dataset):

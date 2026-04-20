@@ -1,11 +1,11 @@
-# Script for generating and visualizing 3D pose samples using the VAREN model.
+# Script for generating and visualizing 3D pose samples using the pose prior.
 #
-# This script loads a pre-trained VAREN model to generate random 3D poses, 
-# constructs corresponding 3D meshes, and optionally saves them to disk. 
+# This script loads a pre-trained pose prior to generate random 3D poses,
+# constructs corresponding 3D meshes, and optionally saves them to disk.
 # The generated meshes are displayed using trimesh.
 #
 # Arguments:
-#     --varen_model_path (str): Path to the pre-trained VAREN model.
+#     --body_model_path (str): Path to the pretrained quadruped body model.
 #     --checkpoint_path (str): Path to the model checkpoint.
 #     --num_samples (int): Number of pose samples to generate (default: 3).
 #     --save_samples (bool): If set, saves generated poses and meshes to disk.
@@ -18,22 +18,22 @@
 #     - The generated 3D models are displayed in a trimesh scene.
 #
 # Example usage:
-# NOTE: Script requires the follow structure to run, due to directory structure. 
+# NOTE: Script requires the follow structure to run, due to directory structure.
 #     python -m example_scripts.sample_VAE --num_samples 5 --save_samples --temperature 1.5
 #
 # Dependencies:
 #     - torch
 #     - argparse
 #     - trimesh
-#     - varen_poser.utils.example_utils (for helper functions)
+#     - quadruped_poser.utils.example_utils (for helper functions)
 #
 # Author: Dennis Perrett
 
 import torch
 import argparse
 import trimesh
-from varen import VAREN
-from varen_poser.utils.example_utils import (load_model, 
+from varen import VAREN as BodyModel
+from quadruped_poser.utils.example_utils import (load_model, 
                                     generate_poses, 
                                     create_meshes, 
                                     save_samples)
@@ -42,7 +42,7 @@ from varen_poser.utils.example_utils import (load_model,
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/ssd-disk/data_ssd/VAREN/models/VAREN")
+    parser.add_argument('--body_model_path', type=str, default="/ssd-disk/data_ssd/VAREN/models/VAREN")
     parser.add_argument('--checkpoint_path', type=str, default="/ssd-disk/data_ssd/VAREN/models/VarenPoser/VarenPoser2_0.pth")
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_samples', action='store_true')
@@ -62,10 +62,10 @@ def main():
 
     # scale accordingly
     shape = shape * std
-    model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    varen = VAREN(args.varen_model_path, use_muscle_deformations=False).to(device)
+    model = load_model(args.body_model_path, args.checkpoint_path, device)
+    body_model = BodyModel(args.body_model_path, use_muscle_deformations=False).to(device)
     poses = generate_poses(model, args.num_samples, args.temperature, device)
-    scene = create_meshes(varen, poses, device, shape=shape)
+    scene = create_meshes(body_model, poses, device, shape=shape)
 
     if args.save_samples:
         save_samples(poses, scene)

@@ -1,13 +1,13 @@
 # Script for generating and visualizing the latent space of the VAE.
 #
 # The VAE latent space is a 32-dimensional standard normal distribution.
-# This script explores the effect of each latent dimension by creating input vectors 
-# where each dimension is individually set to -2, 0, and +2 standard deviations (SD), 
-# while all other dimensions remain at 0. This helps visualize the influence of 
-# each latent dimension on the generated 3D horse poses.
+# This script explores the effect of each latent dimension by creating input vectors
+# where each dimension is individually set to -2, 0, and +2 standard deviations (SD),
+# while all other dimensions remain at 0. This helps visualize the influence of
+# each latent dimension on the generated 3D poses.
 #
-# The script generates 96 different poses (32 dimensions * 3 values per dimension), 
-# converts them into 3D meshes, and saves them with names indicating which 
+# The script generates 96 different poses (32 dimensions * 3 values per dimension),
+# converts them into 3D meshes, and saves them with names indicating which
 # dimension and value were used (e.g., dim0_2neg.ply, dim0_0.ply, dim0_2pos.ply).
 #
 # Outputs:
@@ -18,8 +18,8 @@
 #             - Val is either "2neg" (-2SD), "0" (0SD), or "2pos" (+2SD).
 #
 # Example usage:
-# NOTE: Script requires the follow structure to run, due to directory structure. 
-#     python -m examples.visualize_latent_space --save_samples
+# NOTE: Script requires the follow structure to run, due to directory structure.
+#     python -m example_scripts.visualise_pose_space --save_samples
 #
 # Dependencies:
 #     - torch
@@ -27,8 +27,7 @@
 #     - trimesh
 #     - numpy
 #     - pathlib
-#     - varen_poser.utils.example_utils (for helper functions)
-#
+#     - quadruped_poser.utils.example_utils (for helper functions)
 #
 # Author: Dennis Perrett
 
@@ -36,16 +35,16 @@ import torch
 import argparse
 import trimesh
 import numpy as np
-from varen import VAREN
+from varen import VAREN as BodyModel
 from pathlib import Path
 
-from varen_poser.utils.example_utils import load_model
+from quadruped_poser.utils.example_utils import load_model
 
 
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
+    parser.add_argument('--body_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
     parser.add_argument('--checkpoint_path', type=str, default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth")
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_samples', action='store_true')
@@ -96,7 +95,7 @@ def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
     with torch.no_grad():
         return model.decode(latent_tensor)
 
-def visualize_and_export_horses(poses, model: VAREN, out_folder="samples"):
+def visualize_and_export_horses(poses, model: BodyModel, out_folder="samples"):
     """
     Visualize and export the 96 horses as trimesh objects with naming convention based on latent dimensions.
     
@@ -142,12 +141,12 @@ def main():
     args = parse_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    varen = VAREN(args.varen_model_path).to(device)
+    model = load_model(args.body_model_path, args.checkpoint_path, device)
+    body_model = BodyModel(args.body_model_path).to(device)
     poses = sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None)['pose_body']
     poses = poses.reshape(poses.shape[0], -1)
- 
-    visualize_and_export_horses(poses, varen)
+
+    visualize_and_export_horses(poses, body_model)
 
 
 if __name__ == "__main__":

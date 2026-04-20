@@ -1,39 +1,34 @@
-# Script for generating and visualizing 3D pose samples using the VAREN model.
+# Script for regularising and visualizing 3D pose samples using the pose prior.
 #
-# This script loads a pre-trained VAREN model to generate random 3D poses, 
-# constructs corresponding 3D meshes, and optionally saves them to disk. 
-# The generated meshes are displayed using trimesh.
+# This script loads a pre-trained pose prior, regularises random input poses,
+# constructs before/after 3D meshes, and displays them using trimesh.
 #
 # Arguments:
-#     --varen_model_path (str): Path to the pre-trained VAREN model.
+#     --body_model_path (str): Path to the pretrained quadruped body model.
 #     --checkpoint_path (str): Path to the model checkpoint.
 #     --num_samples (int): Number of pose samples to generate (default: 3).
 #     --save_samples (bool): If set, saves generated poses and meshes to disk.
-#     --temperature (float): Controls the variation in sampled poses (default: 1.0).
 #
 # Outputs:
-#     - If --save_samples is set:
-#         - Poses are saved as 'samples.npy' in the 'samples' directory.
-#         - Meshes are saved as .ply files in the same directory.
-#     - The generated 3D models are displayed in a trimesh scene.
+#     - Raw and regularised meshes displayed side-by-side in a trimesh scene.
 #
 # Example usage:
-# NOTE: Script requires the follow structure to run, due to directory structure. 
-#     python -m examples.sample_VAE --num_samples 5 --save_samples --temperature 1.5
+# NOTE: Script requires the follow structure to run, due to directory structure.
+#     python -m example_scripts.regularisation_example --num_samples 5
 #
 # Dependencies:
 #     - torch
 #     - argparse
 #     - trimesh
-#     - varen_poser.utils.example_utils (for helper functions)
+#     - quadruped_poser.utils.example_utils (for helper functions)
 #
 # Author: Dennis Perrett
 
 import torch
 import argparse
 import trimesh
-from varen import VAREN
-from varen_poser.utils.example_utils import (load_model, 
+from varen import VAREN as BodyModel
+from quadruped_poser.utils.example_utils import (load_model, 
                                     generate_poses, 
                                     create_meshes, 
                                     save_samples)
@@ -42,7 +37,7 @@ from varen_poser.utils.example_utils import (load_model,
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
+    parser.add_argument('--body_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
     parser.add_argument('--checkpoint_path', type=str, default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth")
     parser.add_argument('--num_samples', type=int, default=3)
     parser.add_argument('--save_samples', action='store_true')
@@ -54,15 +49,15 @@ def main():
     """Main function that runs the pose generation pipeline."""
     args = parse_arguments()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    varen = VAREN(args.varen_model_path).to(device)
-    model = load_model(args.varen_model_path, args.checkpoint_path, device)
+    body_model = BodyModel(args.body_model_path).to(device)
+    model = load_model(args.body_model_path, args.checkpoint_path, device)
     NUM_JOINTS = model.num_joints
     poses_input = (torch.rand(args.num_samples, NUM_JOINTS * 3, device=device) - 0.5) * .8
     regularised_poses = model(poses_input)['pose_body'].reshape(args.num_samples, -1)
     
     colours = (torch.rand(args.num_samples,3) * 255).byte().cpu().numpy()
-    raw_meshs = create_meshes(varen, poses_input, device, colours)
-    final_meshs = create_meshes(varen, regularised_poses, device, colours*.5)
+    raw_meshs = create_meshes(body_model, poses_input, device, colours)
+    final_meshs = create_meshes(body_model, regularised_poses, device, colours*.5)
     for mesh in final_meshs:
         mesh.vertices += [0,0,-2.5]
     

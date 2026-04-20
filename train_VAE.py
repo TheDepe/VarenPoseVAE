@@ -6,9 +6,9 @@ import trimesh
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim import Adam
 
-from varen_poser.models.trainer import QuadrupedPosePriorTrainer
-from varen_poser.utils.logging_utils import create_logger, get_new_log_dir
-from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
+from quadruped_poser.models.trainer import QuadrupedPosePriorTrainer
+from quadruped_poser.utils.logging_utils import create_logger, get_new_log_dir
+from quadruped_poser.datasets.pose_dataset import VarenMoCapData, VarenMuscles
 
 # --------------------------------------------------------------------------------------------------
 # Arguments
@@ -16,7 +16,7 @@ from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
 parser = argparse.ArgumentParser()
 
 # Model arguments
-parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data2/VAREN/models/VAREN")
+parser.add_argument('--body_model_path', type=str, default="/home/dperrett/Documents/Data2/VAREN/models/VAREN")
 
 # Datasets and loaders
 parser.add_argument('--dataset_path', type=str, default='smb://ps-access.is.localnet/project/horses_in_motion/VARENset_subset') #'./data/shapenet.hdf5')
@@ -48,7 +48,7 @@ train_data = ConcatDataset([train_data_mocap, train_data_muscles])
 dataloader_train = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True)
 device = 'cuda'
 
-model = QuadrupedPosePriorTrainer(varen_path=args.varen_model_path).to(device)
+model = QuadrupedPosePriorTrainer(body_model_path=args.body_model_path).to(device)
 params_to_optimize = [p for name, p in model.named_parameters() if 'body_model' not in name]
 optimiser = Adam(params_to_optimize, lr=args.lr, weight_decay=0.00001)
 
@@ -101,7 +101,7 @@ while epoch <= args.epochs:
         # Create a new state dict excluding parameters from 'body_model'
         filtered_state_dict = {k: v for k, v in state_dict.items() if 'body_model' not in k}
         
-        torch.save(filtered_state_dict, log_dir / f"VAREN_pose_VAE_epoch_{epoch}.pth")
+        torch.save(filtered_state_dict, log_dir / f"pose_prior_epoch_{epoch}.pth")
 
     epoch += 1
 
