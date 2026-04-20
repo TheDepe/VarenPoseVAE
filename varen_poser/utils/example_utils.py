@@ -3,38 +3,39 @@ import trimesh
 import numpy as np
 
 from pathlib import Path
-from varen_poser.models.varen_poser import VarenPoser
+from varen_poser.models.pose_prior import QuadrupedPosePrior
 from typing import Union, List
 from varen import VAREN
 
-def load_model(varen_model_path: str, checkpoint_path: str, device: str) -> VarenPoser:
-    """Loads the VAREN model and checkpoint weights.
-    
+
+def load_model(body_model_path: str, checkpoint_path: str, device: str) -> QuadrupedPosePrior:
+    """Loads the pose prior and its checkpoint weights.
+
     Args:
-        varen_model_path (str): Path to the VAREN model.
-        checkpoint_path (str): Path to the model checkpoint.
-        device (str): Device to load the model on ('cuda' or 'cpu').
-    
+        body_model_path: Path to the quadruped body model (passed through via kwargs).
+        checkpoint_path: Path to the model checkpoint (.pth file).
+        device: Device string ('cuda' or 'cpu').
+
     Returns:
-        VarenPoser: Loaded VAREN model.
+        Loaded QuadrupedPosePrior in eval mode.
     """
-    model = VarenPoser(varen_path=varen_model_path).to(device).eval()
+    model = QuadrupedPosePrior().to(device).eval()
     ckpt = torch.load(checkpoint_path, weights_only=False)
     model.load_state_dict(ckpt, strict=False)
     return model
 
 
-def generate_poses(model: VarenPoser, num_samples: int, temperature: float, device: str) -> torch.Tensor:
-    """Generates pose samples using the VAREN model.
-    
+def generate_poses(model: QuadrupedPosePrior, num_samples: int, temperature: float, device: str) -> torch.Tensor:
+    """Samples poses from the pose prior.
+
     Args:
-        model (VarenPoser): The pre-trained VAREN model.
-        num_samples (int): Number of pose samples to generate.
-        temperature (float): Sampling diversity control.
-        device (str): Device ('cuda' or 'cpu').
-    
+        model: A loaded QuadrupedPosePrior.
+        num_samples: Number of poses to generate.
+        temperature: Sampling diversity control.
+        device: Device string ('cuda' or 'cpu').
+
     Returns:
-        torch.Tensor: Generated poses as a tensor.
+        Generated poses as a tensor of shape (num_samples, num_joints * 3).
     """
     poses = model.sample_poses(num_samples, temperature=temperature)['pose_body'].reshape(num_samples, -1)
     print(f"{poses.shape[0]} poses generated...")
@@ -47,50 +48,52 @@ def create_meshes(
         device: str,
         colours: Union[np.ndarray, List] = None,
         shape: torch.Tensor = None) -> list:
-    """Creates 3D meshes from generated poses.
-    
+    """Creates 3D meshes from pose samples using a body model.
+
     Args:
-        model (VarenPoser): The pre-trained VAREN model.
-        poses (torch.Tensor): Pose samples.
-        device (str): Device ('cuda' or 'cpu').
-        colours (np.ndarray, List): Colours for each mesh.
-    
+        model: Quadruped body model used for mesh construction.
+        poses: Pose tensor of shape (N, num_joints * 3).
+        device: Device string ('cuda' or 'cpu').
+        colours: Optional per-mesh RGB colours, shape (N, 3).
+        shape: Optional shape (beta) coefficients, shape (N, 39).
+
     Returns:
-        list: List of trimesh meshes representing the generated poses.
+        List of trimesh.Trimesh objects, one per pose.
     """
     n_poses = poses.shape[0]
     if shape is None:
         shape = torch.zeros(n_poses, 39).to(device)
 
-    #global_orient = torch.zeros(n_poses, 3).to(device)
     transl = torch.zeros(n_poses, 3).to(device)
+    vertices = model(
+        body_pose=poses[:, 3:],
+        betas=shape,
+        transl=transl,
+        global_orient=poses[:, :3],
+    ).vertices
 
-    vertices = model(body_pose=poses[:,3:], betas=shape, transl=transl, global_orient=poses[:,:3]).vertices
+    if colours is None:
+        colours = (torch.rand(n_poses, 3) * 255).byte().cpu().numpy()
 
     scene = []
     offset_step = 2.0
-
-    if colours is None:
-            colours = (torch.rand(n_poses,3) * 255).byte().cpu().numpy()
-
-    for i, horse in enumerate(vertices):
+    for i, verts in enumerate(vertices):
         offset = np.array([0, i * offset_step, 0])
-        horse_np = horse.detach().cpu().numpy() + offset
-        mesh = trimesh.Trimesh(vertices=horse_np, faces=model.faces)
-        mesh.visual.vertex_colors = np.tile(np.append(colours[i], 255), (horse_np.shape[0], 1))
-
+        verts_np = verts.detach().cpu().numpy() + offset
+        mesh = trimesh.Trimesh(vertices=verts_np, faces=model.faces)
+        mesh.visual.vertex_colors = np.tile(np.append(colours[i], 255), (verts_np.shape[0], 1))
         scene.append(mesh)
 
     return scene
 
 
 def save_samples(poses: torch.Tensor, scene: list, output_folder: str = "samples"):
-    """Saves pose samples and corresponding 3D meshes to disk.
-    
+    """Saves pose arrays and mesh files to disk.
+
     Args:
-        poses (torch.Tensor): The generated poses.
-        scene (list): List of trimesh meshes.
-        output_folder (str, optional): Directory to save files. Defaults to "samples".
+        poses: Generated poses tensor.
+        scene: List of trimesh.Trimesh meshes.
+        output_folder: Directory to write output files into.
     """
     out_folder = Path(output_folder)
     out_folder.mkdir(parents=True, exist_ok=True)

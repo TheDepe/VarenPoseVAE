@@ -6,7 +6,7 @@ import trimesh
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim import Adam
 
-from varen_poser.models.varen_poser import VarenPoserTrainingExtension
+from varen_poser.models.trainer import QuadrupedPosePriorTrainer
 from varen_poser.utils.logger import *
 from varen_poser.datasets.varen_pose_dataset import VarenMoCapData, VarenMuscles
 
@@ -48,7 +48,7 @@ train_data = ConcatDataset([train_data_mocap, train_data_muscles])
 dataloader_train = DataLoader(train_data, batch_size=args.train_batch_size, shuffle=True)
 device = 'cuda'
 
-model = VarenPoserTrainingExtension(varen_path=args.varen_model_path).to(device)
+model = QuadrupedPosePriorTrainer(varen_path=args.varen_model_path).to(device)
 params_to_optimize = [p for name, p in model.named_parameters() if 'body_model' not in name]
 optimiser = Adam(params_to_optimize, lr=args.lr, weight_decay=0.00001)
 
