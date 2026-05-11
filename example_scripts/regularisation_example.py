@@ -1,7 +1,7 @@
 # Script for generating and visualizing 3D pose samples using the VAREN model.
 #
-# This script loads a pre-trained VAREN model to generate random 3D poses, 
-# constructs corresponding 3D meshes, and optionally saves them to disk. 
+# This script loads a pre-trained VAREN model to generate random 3D poses,
+# constructs corresponding 3D meshes, and optionally saves them to disk.
 # The generated meshes are displayed using trimesh.
 #
 # Arguments:
@@ -18,7 +18,7 @@
 #     - The generated 3D models are displayed in a trimesh scene.
 #
 # Example usage:
-# NOTE: Script requires the follow structure to run, due to directory structure. 
+# NOTE: Script requires the follow structure to run, due to directory structure.
 #     python -m examples.sample_VAE --num_samples 5 --save_samples --temperature 1.5
 #
 # Dependencies:
@@ -33,41 +33,55 @@ import torch
 import argparse
 import trimesh
 from varen import VAREN
-from varen_poser.utils.example_utils import (load_model, 
-                                    generate_poses, 
-                                    create_meshes, 
-                                    save_samples)
+from varen_poser.utils.example_utils import (
+    load_model,
+    generate_poses,
+    create_meshes,
+    save_samples,
+)
 
 
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
-    parser.add_argument('--checkpoint_path', type=str, default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth")
-    parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_samples', action='store_true')
+    parser.add_argument(
+        "--varen_model_path",
+        type=str,
+        default="/home/dperrett/Documents/Data/VAREN/models/VAREN",
+    )
+    parser.add_argument(
+        "--checkpoint_path",
+        type=str,
+        default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth",
+    )
+    parser.add_argument("--num_samples", type=int, default=3)
+    parser.add_argument("--save_samples", action="store_true")
     return parser.parse_args()
-
 
 
 def main():
     """Main function that runs the pose generation pipeline."""
     args = parse_arguments()
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     varen = VAREN(args.varen_model_path).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
     NUM_JOINTS = model.num_joints
-    poses_input = (torch.rand(args.num_samples, NUM_JOINTS * 3, device=device) - 0.5) * .8
-    regularised_poses = model(poses_input)['pose_body'].reshape(args.num_samples, -1)
-    
-    colours = (torch.rand(args.num_samples,3) * 255).byte().cpu().numpy()
-    raw_meshs = create_meshes(varen, poses_input, device, colours)
-    final_meshs = create_meshes(varen, regularised_poses, device, colours*.5)
-    for mesh in final_meshs:
-        mesh.vertices += [0,0,-2.5]
-    
+    poses_input = (
+        torch.rand(args.num_samples, NUM_JOINTS * 3, device=device) - 0.5
+    ) * 0.8
+    regularised_poses = model(poses_input)["pose_body"].reshape(
+        args.num_samples, -1
+    )
 
-    trimesh.Scene(raw_meshs+final_meshs).show()
+    colours = (torch.rand(args.num_samples, 3) * 255).byte().cpu().numpy()
+    raw_meshs = create_meshes(varen, poses_input, device, colours)
+    final_meshs = create_meshes(
+        varen, regularised_poses, device, colours * 0.5
+    )
+    for mesh in final_meshs:
+        mesh.vertices += [0, 0, -2.5]
+
+    trimesh.Scene(raw_meshs + final_meshs).show()
 
 
 if __name__ == "__main__":

@@ -39,19 +39,18 @@ def local2global_pose(local_pose, kintree):
     for jId in range(len(kintree)):
         parent_id = kintree[jId]
         if parent_id >= 0:
-            global_pose[:, jId] = torch.matmul(global_pose[:, parent_id], global_pose[:, jId])
+            global_pose[:, jId] = torch.matmul(
+                global_pose[:, parent_id], global_pose[:, jId]
+            )
 
     return global_pose
 
 
-
-
-
 def matrot2aa(pose_matrot):
-    '''
+    """
     :param pose_matrot: Nx3x3
     :return: Nx3
-    '''
+    """
     bs = pose_matrot.size(0)
     homogen_matrot = F.pad(pose_matrot, [0, 1])
     pose = rotation_matrix_to_angle_axis(homogen_matrot)
@@ -59,59 +58,66 @@ def matrot2aa(pose_matrot):
 
 
 def aa2matrot(pose):
-    '''
+    """
     :param Nx3
     :return: pose_matrot: Nx3x3
-    '''
+    """
     bs = pose.size(0)
     num_joints = pose.size(1) // 3
-    pose_body_matrot = angle_axis_to_rotation_matrix(pose)[:, :3, :3].contiguous()  # .view(bs, num_joints*9)
+    pose_body_matrot = angle_axis_to_rotation_matrix(pose)[
+        :, :3, :3
+    ].contiguous()  # .view(bs, num_joints*9)
     return pose_body_matrot
-
 
 
 from typing import Union, List
 
 
 def rotate_points_xyz(mesh_v: np.ndarray, Rxyz: Union[List[int], np.ndarray]):
-    '''
+    """
 
     :param mesh_v: Nxnum_vx3
     :param Rxyz: Nx3 or 3 in degrees
     :return:
-    '''
+    """
     if Rxyz is not None:
         Rxyz = list(Rxyz)
-        Rxyz = np.repeat(np.array(Rxyz).reshape(1, 3), repeats=len(mesh_v), axis=0)
+        Rxyz = np.repeat(
+            np.array(Rxyz).reshape(1, 3), repeats=len(mesh_v), axis=0
+        )
 
     mesh_v_rotated = []
 
     for fId in range(mesh_v.shape[0]):
         angle = np.radians(Rxyz[fId, 0])
-        rx = np.array([
-            [1., 0., 0.],
-            [0., np.cos(angle), -np.sin(angle)],
-            [0., np.sin(angle), np.cos(angle)]
-        ])
+        rx = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, np.cos(angle), -np.sin(angle)],
+                [0.0, np.sin(angle), np.cos(angle)],
+            ]
+        )
 
         angle = np.radians(Rxyz[fId, 1])
-        ry = np.array([
-            [np.cos(angle), 0., np.sin(angle)],
-            [0., 1., 0.],
-            [-np.sin(angle), 0., np.cos(angle)]
-        ])
+        ry = np.array(
+            [
+                [np.cos(angle), 0.0, np.sin(angle)],
+                [0.0, 1.0, 0.0],
+                [-np.sin(angle), 0.0, np.cos(angle)],
+            ]
+        )
 
         angle = np.radians(Rxyz[fId, 2])
-        rz = np.array([
-            [np.cos(angle), -np.sin(angle), 0.],
-            [np.sin(angle), np.cos(angle), 0.],
-            [0., 0., 1.]
-        ])
+        rz = np.array(
+            [
+                [np.cos(angle), -np.sin(angle), 0.0],
+                [np.sin(angle), np.cos(angle), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
         mesh_v_rotated.append(rz.dot(ry.dot(rx.dot(mesh_v[fId].T))).T)
 
     return np.array(mesh_v_rotated)
-
-
 
 
 def batch_rigid_transform(rot_mats, joints, parents):
@@ -147,7 +153,10 @@ def batch_rigid_transform(rot_mats, joints, parents):
     for i in range(1, parents.shape[0]):
         # Subtract the joint location at the rest pose
         # No need for rotation, since it's identity when at rest
-        curr_res = torch.matmul(transform_chain[parents[i]], tmat(rot_mats[:, i], rel_joints[:, i])[:, 0])
+        curr_res = torch.matmul(
+            transform_chain[parents[i]],
+            tmat(rot_mats[:, i], rel_joints[:, i])[:, 0],
+        )
         transform_chain.append(curr_res)
 
     transforms = torch.stack(transform_chain, dim=1)
@@ -157,7 +166,10 @@ def batch_rigid_transform(rot_mats, joints, parents):
 
     return posed_joints
 
-def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
+
+def axis_angle_to_quaternion(
+    axis_angle: torch.Tensor,
+) -> torch.Tensor:
     """
     Convert rotations given as axis/angle to quaternions.
 
@@ -173,11 +185,17 @@ def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
     angles = torch.norm(axis_angle, p=2, dim=-1, keepdim=True)
     sin_half_angles_over_angles = 0.5 * torch.sinc(angles * 0.5 / torch.pi)
     return torch.cat(
-        [torch.cos(angles * 0.5), axis_angle * sin_half_angles_over_angles], dim=-1
+        [
+            torch.cos(angles * 0.5),
+            axis_angle * sin_half_angles_over_angles,
+        ],
+        dim=-1,
     )
 
 
-def axis_angle_to_matrix(axis_angle: torch.Tensor, fast: bool = False) -> torch.Tensor:
+def axis_angle_to_matrix(
+    axis_angle: torch.Tensor, fast: bool = False
+) -> torch.Tensor:
     """
     Convert rotations given as axis/angle to rotation matrices.
 
@@ -201,7 +219,11 @@ def axis_angle_to_matrix(axis_angle: torch.Tensor, fast: bool = False) -> torch.
 
     angles = torch.norm(axis_angle, p=2, dim=-1, keepdim=True).unsqueeze(-1)
 
-    rx, ry, rz = axis_angle[..., 0], axis_angle[..., 1], axis_angle[..., 2]
+    rx, ry, rz = (
+        axis_angle[..., 0],
+        axis_angle[..., 1],
+        axis_angle[..., 2],
+    )
     zeros = torch.zeros(shape[:-1], dtype=dtype, device=device)
     cross_product_matrix = torch.stack(
         [zeros, -rz, ry, rz, zeros, -rx, -ry, rx, zeros], dim=-1
@@ -218,7 +240,6 @@ def axis_angle_to_matrix(axis_angle: torch.Tensor, fast: bool = False) -> torch.
     )
 
 
-
 def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
     """
     Returns torch.sqrt(torch.max(0, x))
@@ -231,6 +252,7 @@ def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
     else:
         ret = torch.where(positive_mask, torch.sqrt(x), ret)
     return ret
+
 
 def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
     """
@@ -267,16 +289,28 @@ def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
         [
             # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
             #  `int`.
-            torch.stack([q_abs[..., 0] ** 2, m21 - m12, m02 - m20, m10 - m01], dim=-1),
+            torch.stack(
+                [q_abs[..., 0] ** 2, m21 - m12, m02 - m20, m10 - m01],
+                dim=-1,
+            ),
             # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
             #  `int`.
-            torch.stack([m21 - m12, q_abs[..., 1] ** 2, m10 + m01, m02 + m20], dim=-1),
+            torch.stack(
+                [m21 - m12, q_abs[..., 1] ** 2, m10 + m01, m02 + m20],
+                dim=-1,
+            ),
             # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
             #  `int`.
-            torch.stack([m02 - m20, m10 + m01, q_abs[..., 2] ** 2, m12 + m21], dim=-1),
+            torch.stack(
+                [m02 - m20, m10 + m01, q_abs[..., 2] ** 2, m12 + m21],
+                dim=-1,
+            ),
             # pyre-fixme[58]: `**` is not supported for operand types `Tensor` and
             #  `int`.
-            torch.stack([m10 - m01, m20 + m02, m21 + m12, q_abs[..., 3] ** 2], dim=-1),
+            torch.stack(
+                [m10 - m01, m20 + m02, m21 + m12, q_abs[..., 3] ** 2],
+                dim=-1,
+            ),
         ],
         dim=-2,
     )
@@ -340,7 +374,10 @@ def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
     )
     return o.reshape(quaternions.shape[:-1] + (3, 3))
 
-def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tensor:
+
+def matrix_to_axis_angle(
+    matrix: torch.Tensor, fast: bool = False
+) -> torch.Tensor:
     """
     Convert rotations given as rotation matrices to axis/angle.
 
@@ -376,7 +413,9 @@ def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tens
     angles = torch.atan2(norms, traces - 1)
 
     zeros = torch.zeros(3, dtype=matrix.dtype, device=matrix.device)
-    omegas = torch.where(torch.isclose(angles, torch.zeros_like(angles)), zeros, omegas)
+    omegas = torch.where(
+        torch.isclose(angles, torch.zeros_like(angles)), zeros, omegas
+    )
 
     near_pi = angles.isclose(angles.new_full((1,), torch.pi)).squeeze(-1)
 
@@ -395,7 +434,9 @@ def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tens
     return axis_angles
 
 
-def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
+def quaternion_to_axis_angle(
+    quaternions: torch.Tensor,
+) -> torch.Tensor:
     """
     Convert rotations given as quaternions to axis/angle.
 
@@ -417,7 +458,9 @@ def quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     return quaternions[..., 1:] / sin_half_angles_over_angles
 
 
-def matrix_to_euler_angles(matrix: torch.Tensor, convention: str) -> torch.Tensor:
+def matrix_to_euler_angles(
+    matrix: torch.Tensor, convention: str
+) -> torch.Tensor:
     """
     Convert rotations given as rotation matrices to Euler angles in radians.
 
@@ -449,17 +492,30 @@ def matrix_to_euler_angles(matrix: torch.Tensor, convention: str) -> torch.Tenso
 
     o = (
         _angle_from_tan(
-            convention[0], convention[1], matrix[..., i2], False, tait_bryan
+            convention[0],
+            convention[1],
+            matrix[..., i2],
+            False,
+            tait_bryan,
         ),
         central_angle,
         _angle_from_tan(
-            convention[2], convention[1], matrix[..., i0, :], True, tait_bryan
+            convention[2],
+            convention[1],
+            matrix[..., i0, :],
+            True,
+            tait_bryan,
         ),
     )
     return torch.stack(o, -1)
 
+
 def _angle_from_tan(
-    axis: str, other_axis: str, data, horizontal: bool, tait_bryan: bool
+    axis: str,
+    other_axis: str,
+    data,
+    horizontal: bool,
+    tait_bryan: bool,
 ) -> torch.Tensor:
     """
     Extract the first or third Euler angle from the two members of
@@ -500,6 +556,7 @@ def _index_from_letter(letter: str) -> int:
         return 2
     raise ValueError("letter must be either X, Y or Z.")
 
+
 def _axis_angle_rotation(axis: str, angle: torch.Tensor) -> torch.Tensor:
     """
     Return the rotation matrices for one of the rotations about an axis
@@ -529,7 +586,10 @@ def _axis_angle_rotation(axis: str, angle: torch.Tensor) -> torch.Tensor:
 
     return torch.stack(R_flat, -1).reshape(angle.shape + (3, 3))
 
-def euler_angles_to_matrix(euler_angles: torch.Tensor, convention: str) -> torch.Tensor:
+
+def euler_angles_to_matrix(
+    euler_angles: torch.Tensor, convention: str
+) -> torch.Tensor:
     """
     Convert rotations given as Euler angles in radians to rotation matrices.
 
@@ -557,7 +617,10 @@ def euler_angles_to_matrix(euler_angles: torch.Tensor, convention: str) -> torch
     # return functools.reduce(torch.matmul, matrices)
     return torch.matmul(torch.matmul(matrices[0], matrices[1]), matrices[2])
 
-def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tensor:
+
+def matrix_to_axis_angle(
+    matrix: torch.Tensor, fast: bool = False
+) -> torch.Tensor:
     """
     Convert rotations given as rotation matrices to axis/angle.
 
@@ -593,7 +656,9 @@ def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tens
     angles = torch.atan2(norms, traces - 1)
 
     zeros = torch.zeros(3, dtype=matrix.dtype, device=matrix.device)
-    omegas = torch.where(torch.isclose(angles, torch.zeros_like(angles)), zeros, omegas)
+    omegas = torch.where(
+        torch.isclose(angles, torch.zeros_like(angles)), zeros, omegas
+    )
 
     near_pi = angles.isclose(angles.new_full((1,), torch.pi)).squeeze(-1)
 
@@ -611,19 +676,23 @@ def matrix_to_axis_angle(matrix: torch.Tensor, fast: bool = False) -> torch.Tens
 
     return axis_angles
 
+
 def aa2euler(axis_angle, convention: str = "XYZ"):
-    rot_mats = axis_angle_to_matrix(axis_angle) 
+    rot_mats = axis_angle_to_matrix(axis_angle)
     return matrix_to_euler_angles(rot_mats, convention=convention)
-    #return R.from_matrix(aa2matrot(axis_angle)).as_euler(convention, degrees=False)
+    # return R.from_matrix(aa2matrot(axis_angle)).as_euler(convention, degrees=False)
+
 
 def euler2aa(euler_angles, convention: str = "XYZ"):
 
     rot_mats = euler_angles_to_matrix(euler_angles, convention=convention)
     return matrix_to_axis_angle(rot_mats)
-    #return torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
+    # return torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
 
 
-def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: str = 'XYZ') -> torch.Tensor:
+def remove_rotation_from_axis(
+    full_pose: torch.Tensor, axis: int, convention: str = "XYZ"
+) -> torch.Tensor:
     """
     Removes rotation around a specified axis from the global orient of a full pose represented in axis-angle format.
 
@@ -646,7 +715,10 @@ def remove_rotation_from_axis(full_pose: torch.Tensor, axis: int, convention: st
     full_pose_modified[:, :3] = global_orient
     return full_pose_modified
 
-def merge_global_orients_along_axis(additional: torch.Tensor, base: torch.Tensor, axis: int) -> torch.Tensor:
+
+def merge_global_orients_along_axis(
+    additional: torch.Tensor, base: torch.Tensor, axis: int
+) -> torch.Tensor:
     """
     Merges the global orientation of the `additional` pose into `base` along a specified axis.
 
@@ -658,17 +730,17 @@ def merge_global_orients_along_axis(additional: torch.Tensor, base: torch.Tensor
     Returns:
         torch.Tensor: A new tensor with the modified global orientation.
     """
-    
-    base_global_orient = base[:, :3] # full_pose -> GO
-    addi_global_orient = additional[:, :3] # full pose -> GO
-    
+
+    base_global_orient = base[:, :3]  # full_pose -> GO
+    addi_global_orient = additional[:, :3]  # full pose -> GO
+
     base_euler_angles = aa2euler(base_global_orient)
     addi_euler_angles = aa2euler(addi_global_orient)
 
     base_euler_angles[:, axis] = addi_euler_angles[:, axis]
 
     merged_global_orient = euler2aa(base_euler_angles)
-    
+
     base_clone = base.clone()
     base_clone[:, :3] = merged_global_orient
 

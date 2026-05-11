@@ -11,19 +11,19 @@ class VarenMoCapData(Dataset):
     """
     A PyTorch Dataset for loading motion capture data from pickle files.
 
-    This dataset searches for all pose files with the suffix '_stageii.pkl' in the given 
+    This dataset searches for all pose files with the suffix '_stageii.pkl' in the given
     directory, extracts the full-body poses, and stores them as a NumPy array.
 
     Args:
         data_dir (str or Path): Path to the directory containing the motion capture data.
-    
+
     Expected Dataset Structure:
-        Not important. Will find all files with name pattern '*_stageii.pkl' anywhere 
+        Not important. Will find all files with name pattern '*_stageii.pkl' anywhere
         within the root (and sub) directory.
 
     Attributes:
-        poses (np.ndarray): A concatenated array of all extracted poses, where each pose 
-            is represented as an N x 111 matrix (excluding the first three global rotation 
+        poses (np.ndarray): A concatenated array of all extracted poses, where each pose
+            is represented as an N x 111 matrix (excluding the first three global rotation
             components).
 
     Raises:
@@ -33,20 +33,25 @@ class VarenMoCapData(Dataset):
         dataset = VarenMoCapData("path/to/data")
         first_pose = dataset[0]  # Access a single pose sample
     """
+
     def __init__(self, data_dir, **kwargs):
         self.data_dir = Path(data_dir)
         if not self.data_dir.exists():
-            raise FileNotFoundError(f"Data directory {self.data_dir} does not exist")
-        
-        pose_files = list(self.data_dir.rglob('*_stageii.pkl'))
-        
+            raise FileNotFoundError(
+                f"Data directory {self.data_dir} does not exist"
+            )
+
+        pose_files = list(self.data_dir.rglob("*_stageii.pkl"))
+
         self.poses = []
 
         for file in tqdm(pose_files):
-            
+
             data = np.load(file, allow_pickle=True)
-            full_pose = torch.Tensor(data['fullpose'])
-            full_pose = remove_rotation_from_axis(full_pose, axis=2).double().numpy()
+            full_pose = torch.Tensor(data["fullpose"])
+            full_pose = (
+                remove_rotation_from_axis(full_pose, axis=2).double().numpy()
+            )
 
             self.poses.append(full_pose)
             break
@@ -59,4 +64,3 @@ class VarenMoCapData(Dataset):
 
     def __getitem__(self, idx):
         return self.poses[idx]
-    

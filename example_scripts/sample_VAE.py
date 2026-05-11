@@ -1,7 +1,7 @@
 # Script for generating and visualizing 3D pose samples using the VAREN model.
 #
-# This script loads a pre-trained VAREN model to generate random 3D poses, 
-# constructs corresponding 3D meshes, and optionally saves them to disk. 
+# This script loads a pre-trained VAREN model to generate random 3D poses,
+# constructs corresponding 3D meshes, and optionally saves them to disk.
 # The generated meshes are displayed using trimesh.
 #
 # Arguments:
@@ -18,7 +18,7 @@
 #     - The generated 3D models are displayed in a trimesh scene.
 #
 # Example usage:
-# NOTE: Script requires the follow structure to run, due to directory structure. 
+# NOTE: Script requires the follow structure to run, due to directory structure.
 #     python -m example_scripts.sample_VAE --num_samples 5 --save_samples --temperature 1.5
 #
 # Dependencies:
@@ -33,28 +33,37 @@ import torch
 import argparse
 import trimesh
 from varen import VAREN
-from varen_poser.utils.example_utils import (load_model, 
-                                    generate_poses, 
-                                    create_meshes, 
-                                    save_samples)
+from varen_poser.utils.example_utils import (
+    load_model,
+    generate_poses,
+    create_meshes,
+    save_samples,
+)
 
 
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--varen_model_path', type=str, default="/home/dperrett/Documents/Data/VAREN/models/VAREN")
-    parser.add_argument('--checkpoint_path', type=str, default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth")
-    parser.add_argument('--num_samples', type=int, default=3)
-    parser.add_argument('--save_samples', action='store_true')
-    parser.add_argument('--temperature', type=float, default=1.0)
+    parser.add_argument(
+        "--varen_model_path",
+        type=str,
+        default="/home/dperrett/Documents/Data/VAREN/models/VAREN",
+    )
+    parser.add_argument(
+        "--checkpoint_path",
+        type=str,
+        default="/home/dperrett/Documents/Data/Checkpoints/VarenPoser.pth",
+    )
+    parser.add_argument("--num_samples", type=int, default=3)
+    parser.add_argument("--save_samples", action="store_true")
+    parser.add_argument("--temperature", type=float, default=1.0)
     return parser.parse_args()
-
 
 
 def main():
     """Main function that runs the pose generation pipeline."""
     args = parse_arguments()
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     shape = torch.randn(args.num_samples, 39).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)

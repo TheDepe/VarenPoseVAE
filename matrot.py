@@ -10,16 +10,19 @@ def random_rotation_matrices(n):
     return rotations  # Shape (n, 3, 3)
 
 
+def remove_rot_axis_from_pose(pose, axis, convention="xyz"):
 
-def remove_rot_axis_from_pose(pose, axis, convention='xyz'):
+    euler_angles = R.from_matrix(aa2matrot(torch.tensor(pose))).as_euler(
+        convention, degrees=False
+    )
+    euler_angles[:, axis] = 0  # remove plane rotation
 
-
-    euler_angles = R.from_matrix(aa2matrot(torch.tensor(pose))).as_euler(convention, degrees=False)
-    euler_angles[:,axis] = 0 # remove plane rotation
-
-    pose = torch.Tensor(R.from_euler(convention, euler_angles, degrees=False).as_matrix())
+    pose = torch.Tensor(
+        R.from_euler(convention, euler_angles, degrees=False).as_matrix()
+    )
     pose = matrot2aa(pose).numpy()
     return pose
+
 
 n = 1
 
@@ -28,7 +31,3 @@ poses = matrot2aa(torch.tensor(random_rotation_matrices(n))).numpy()
 print(poses)
 poses = remove_rot_axis_from_pose(poses, 2)
 print(poses)
-
-
-
-
