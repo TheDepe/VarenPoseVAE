@@ -29,14 +29,15 @@
 #
 # Author: Dennis Perrett
 
-import torch
 import argparse
+
+import torch
 import trimesh
-from varen import VAREN
+from hbm import BodyModel
 from varen_poser.utils.example_utils import (
-    load_model,
-    generate_poses,
     create_meshes,
+    generate_poses,
+    load_model,
     save_samples,
 )
 
@@ -67,7 +68,7 @@ def main():
 
     shape = torch.randn(args.num_samples, 39).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    varen = VAREN(args.varen_model_path).to(device)
+    varen = BodyModel(args.varen_model_path).to(device)
     poses = generate_poses(model, args.num_samples, args.temperature, device)
     scene = create_meshes(varen, poses, device, shape=shape)
 

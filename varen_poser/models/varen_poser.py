@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2019 Max-Planck-Gesellschaft zur Förderung der Wissenschaften e.V. (MPG),
 # acting on behalf of its Max Planck Institute for Intelligent Systems and the
@@ -20,22 +19,22 @@
 # 2020.12.12
 
 
-import torch
-import numpy as np
+from typing import Dict, Optional
 
+import numpy as np
+import torch
+from hbm import BodyModel
 from torch import nn
 from torch.nn import functional as F
-from typing import Dict, Optional
-from varen import VAREN
-
-from .model_components import BatchFlatten
 from varen_poser.utils.angle_continuous_repres import geodesic_loss_R
 from varen_poser.utils.rotation_tools import (
-    matrot2aa,
     aa2matrot,
-    remove_rotation_from_axis,
+    matrot2aa,
     merge_global_orients_along_axis,
+    remove_rotation_from_axis,
 )
+
+from .model_components import BatchFlatten
 
 
 class ContinousRotReprDecoder(nn.Module):
@@ -75,7 +74,9 @@ class BasePoseMapper(nn.Module):
     from_canonical() directly so that encode/decode remain mapper-agnostic.
     """
 
-    def to_canonical(self, source_pose: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def to_canonical(
+        self, source_pose: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         """Map a source-layout pose to the canonical VarenPoser layout.
 
         Args:
@@ -85,6 +86,7 @@ class BasePoseMapper(nn.Module):
             Dict with:
               - 'canonical_pose': (N, canonical_num_joints, 3)
               - 'extra_pose':     (N, E, 3) or None
+
         """
         raise NotImplementedError
 
@@ -105,6 +107,7 @@ class BasePoseMapper(nn.Module):
 
         Returns:
             torch.Tensor: Pose in source layout (N, num_source_joints, 3).
+
         """
         raise NotImplementedError
 
@@ -119,6 +122,7 @@ class IdentityMapper(BasePoseMapper):
         num_joints (int): Number of joints. Must match VarenPoser's canonical
             num_joints (default: 38).
         values_per_joint (int): Values per joint (default: 3 for axis-angle).
+
     """
 
     def __init__(self, num_joints: int = 38, values_per_joint: int = 3):
@@ -126,7 +130,9 @@ class IdentityMapper(BasePoseMapper):
         self.num_joints = num_joints
         self.vpj = values_per_joint
 
-    def to_canonical(self, source_pose: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def to_canonical(
+        self, source_pose: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
         return {
             "canonical_pose": self._ensure_3d(source_pose),
             "extra_pose": None,
@@ -168,11 +174,11 @@ class VarenPoser(nn.Module):
         encoder_net (nn.Sequential): The network for encoding poses.
         decoder_net (nn.Sequential): The network for decoding poses.
         pose_mapper (BasePoseMapper): Maps between source and canonical layouts.
+
     """
 
     def __init__(self, pose_mapper: Optional[BasePoseMapper] = None, **kwargs):
-        """
-        Initialise the VarenPoser model.
+        """Initialise the VarenPoser model.
 
         Args:
             pose_mapper (BasePoseMapper, optional): A BasePoseMapper subclass
@@ -180,6 +186,7 @@ class VarenPoser(nn.Module):
                 used — i.e. source layout is assumed to match canonical layout.
                 Can also be set or swapped later via with_mapper().
             **kwargs: Additional arguments for potential extensions.
+
         """
         super(VarenPoser, self).__init__()
 
@@ -230,6 +237,7 @@ class VarenPoser(nn.Module):
 
         Returns:
             self, so calls can be chained.
+
         """
         self.pose_mapper = pose_mapper
         return self
@@ -245,6 +253,7 @@ class VarenPoser(nn.Module):
 
         Returns:
             Normal: A normal distribution in latent space representing the pose.
+
         """
         return self.encoder_net(pose_body)
 
@@ -262,6 +271,7 @@ class VarenPoser(nn.Module):
                     format (N, num_joints, 3).
                 - 'pose_body_matrot' (torch.Tensor): Decoded pose as rotation
                     matrices (N, num_joints, 9).
+
         """
         bs = Z.shape[0]
         prec = self.decoder_net(Z)
@@ -300,11 +310,12 @@ class VarenPoser(nn.Module):
                 - 'poZ_body_mean' (torch.Tensor): Latent mean (N, latentD).
                 - 'poZ_body_std' (torch.Tensor): Latent std (N, latentD).
                 - 'q_z' (Normal): Full latent distribution.
+
         """
         # 1. Map source layout -> canonical
         mapped = self.pose_mapper.to_canonical(pose_body)
-        canonical_pose = mapped["canonical_pose"]   # (N, J_canon, 3)
-        extra_pose     = mapped["extra_pose"]       # (N, E, 3) or None
+        canonical_pose = mapped["canonical_pose"]  # (N, J_canon, 3)
+        extra_pose = mapped["extra_pose"]  # (N, E, 3) or None
 
         N = canonical_pose.shape[0]
         canonical_flat = canonical_pose.reshape(N, -1)
@@ -321,19 +332,16 @@ class VarenPoser(nn.Module):
             source_pose_original=pose_body,
         )
 
-        decode_results.update(
-            {
-                "pose_body_source": pose_body_source,
-                "poZ_body_mean": q_z.mean,
-                "poZ_body_std": q_z.scale,
-                "q_z": q_z,
-            }
-        )
+        decode_results.update({
+            "pose_body_source": pose_body_source,
+            "poZ_body_mean": q_z.mean,
+            "poZ_body_std": q_z.scale,
+            "q_z": q_z,
+        })
         return decode_results
 
     def sample_poses(self, num_poses, temperature=1.0, seed=None):
-        """
-        Samples new poses from the latent space.
+        """Samples new poses from the latent space.
 
         Note: samples are returned in canonical layout. If you need source
         layout, use pose_mapper.from_canonical() on the result.
@@ -346,12 +354,13 @@ class VarenPoser(nn.Module):
         Returns:
             Dict[str, torch.Tensor]: Dictionary containing generated poses
                 in canonical layout.
+
         """
         np.random.seed(seed)
 
-        assert (
-            temperature > 0.0
-        ), f"Temperature must be positive and non-zero. Got {temperature}"
+        assert temperature > 0.0, (
+            f"Temperature must be positive and non-zero. Got {temperature}"
+        )
 
         some_weight = next(self.parameters())
         dtype = some_weight.dtype
@@ -361,9 +370,7 @@ class VarenPoser(nn.Module):
         with torch.no_grad():
             Zgen = torch.tensor(
                 np.random.normal(
-                    0.0,
-                    1.0 * temperature,
-                    size=(num_poses, self.latentD),
+                    0.0, 1.0 * temperature, size=(num_poses, self.latentD)
                 ),
                 dtype=dtype,
                 device=device,
@@ -383,6 +390,7 @@ class VarenPoser(nn.Module):
 
         Returns:
             torch.Tensor: The regularized pose in the same layout as full_pose.
+
         """
         prepared_pose = remove_rotation_from_axis(full_pose, axis=2)
 
@@ -406,19 +414,25 @@ class VarenPoserTrainingExtension(VarenPoser):
     Attributes:
         body_model (VAREN): A pre-trained horse model used for pose
             reconstruction.
+
     """
 
-    def __init__(self, varen_path, pose_mapper: Optional[BasePoseMapper] = None, **kwargs):
-        """
-        Initializes the extended VarenPoser class.
+    def __init__(
+        self,
+        varen_path,
+        pose_mapper: Optional[BasePoseMapper] = None,
+        **kwargs,
+    ):
+        """Initializes the extended VarenPoser class.
 
         Args:
             varen_path (str): Path to the pre-trained VAREN model.
             pose_mapper (BasePoseMapper, optional): See VarenPoser.__init__.
             **kwargs: Additional arguments.
+
         """
         super().__init__(pose_mapper=pose_mapper, **kwargs)
-        self.body_model = VAREN(varen_path)
+        self.body_model = BodyModel(varen_path)
         for param in self.body_model.parameters():
             param.requires_grad = False
 
@@ -435,26 +449,24 @@ class VarenPoserTrainingExtension(VarenPoser):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Original and reconstructed mesh
                 objects.
+
         """
         bs = dorig.shape[0]
         betas = torch.zeros(bs, 39).to(dorig.device).float()
         transl = torch.zeros(bs, 3).to(dorig.device).float()
 
-        full_pose_in   = dorig.float()
+        full_pose_in = dorig.float()
         # Use pose_body_source so mesh construction always uses canonical joints
         # even when a non-identity mapper is attached.
         full_pose_pred = drec["pose_body_source"].reshape(bs, -1).float()
 
-        go_in   = full_pose_in[:, :3]
+        go_in = full_pose_in[:, :3]
         go_pred = full_pose_pred[:, :3]
-        pose_in   = full_pose_in[:, 3:]
+        pose_in = full_pose_in[:, 3:]
         pose_pred = full_pose_pred[:, 3:]
 
         mesh_orig = self.body_model(
-            global_orient=go_in,
-            body_pose=pose_in,
-            transl=transl,
-            betas=betas,
+            global_orient=go_in, body_pose=pose_in, transl=transl, betas=betas
         )
         mesh_recon = self.body_model(
             global_orient=go_pred,
@@ -480,6 +492,7 @@ class VarenPoserTrainingExtension(VarenPoser):
 
         Returns:
             Dict[str, Dict[str, torch.Tensor]]: Weighted and unweighted losses.
+
         """
         l1_loss = torch.nn.L1Loss(reduction="mean")
         geodesic_loss = geodesic_loss_R(reduction="mean")
@@ -487,10 +500,10 @@ class VarenPoserTrainingExtension(VarenPoser):
         bs, latentD = pose_pred["poZ_body_mean"].shape
         device = pose_pred["poZ_body_mean"].device
 
-        loss_kl_wt     = 0.005
-        loss_rec_wt    = 4
+        loss_kl_wt = 0.005
+        loss_rec_wt = 4
         loss_matrot_wt = 2
-        loss_jtr_wt    = 2
+        loss_jtr_wt = 2
 
         q_z = pose_pred["q_z"]
 
@@ -499,32 +512,29 @@ class VarenPoserTrainingExtension(VarenPoser):
 
         p_z = torch.distributions.normal.Normal(
             loc=torch.zeros((bs, latentD), device=device, requires_grad=False),
-            scale=torch.ones((bs, latentD), device=device, requires_grad=False),
+            scale=torch.ones(
+                (bs, latentD), device=device, requires_grad=False
+            ),
         )
 
         weighted_loss_dict = {
             "loss_kl": loss_kl_wt
             * torch.mean(
                 torch.sum(
-                    torch.distributions.kl.kl_divergence(q_z, p_z),
-                    dim=[1],
+                    torch.distributions.kl.kl_divergence(q_z, p_z), dim=[1]
                 )
             ),
             "loss_mesh_rec": loss_rec_wt * v2v,
-            "matrot": loss_matrot_wt * geodesic_loss(
+            "matrot": loss_matrot_wt
+            * geodesic_loss(
                 pose_pred["pose_body_matrot"].view(-1, 3, 3).double(),
                 aa2matrot(pose_gt.view(-1, 3)),
             ),
-            "jtr": loss_jtr_wt * l1_loss(
-                mesh_orig.joints, mesh_recon.joints
-            ),
+            "jtr": loss_jtr_wt * l1_loss(mesh_orig.joints, mesh_recon.joints),
         }
 
         weighted_loss_dict["loss_total"] = torch.stack(
             list(weighted_loss_dict.values())
         ).sum()
 
-        return {
-            "weighted_loss": weighted_loss_dict,
-            "unweighted_loss": {},
-        }
+        return {"weighted_loss": weighted_loss_dict, "unweighted_loss": {}}

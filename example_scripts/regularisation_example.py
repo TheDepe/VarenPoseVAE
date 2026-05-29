@@ -29,16 +29,12 @@
 #
 # Author: Dennis Perrett
 
-import torch
 import argparse
+
+import torch
 import trimesh
-from varen import VAREN
-from varen_poser.utils.example_utils import (
-    load_model,
-    generate_poses,
-    create_meshes,
-    save_samples,
-)
+from hbm import BodyModel
+from varen_poser.utils.example_utils import create_meshes, load_model
 
 
 def parse_arguments():
@@ -63,7 +59,7 @@ def main():
     """Main function that runs the pose generation pipeline."""
     args = parse_arguments()
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    varen = VAREN(args.varen_model_path).to(device)
+    varen = BodyModel(args.varen_model_path).to(device)
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
     NUM_JOINTS = model.num_joints
     poses_input = (

@@ -12,7 +12,6 @@ dependencies = [
     "torch",
     "tqdm",
     "trimesh",
-    "varen",
 ]
 
 [tool.setuptools.packages.find]

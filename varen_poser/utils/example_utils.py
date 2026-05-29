@@ -1,11 +1,11 @@
+from pathlib import Path
+from typing import List, Union
+
+import numpy as np
 import torch
 import trimesh
-import numpy as np
-
-from pathlib import Path
+from hbm import BodyModel
 from varen_poser.models.varen_poser import VarenPoser
-from typing import Union, List
-from varen import VAREN
 
 
 def load_model(
@@ -20,6 +20,7 @@ def load_model(
 
     Returns:
         VarenPoser: Loaded VAREN model.
+
     """
     model = VarenPoser(varen_path=varen_model_path).to(device).eval()
     ckpt = torch.load(checkpoint_path, weights_only=False)
@@ -28,10 +29,7 @@ def load_model(
 
 
 def generate_poses(
-    model: VarenPoser,
-    num_samples: int,
-    temperature: float,
-    device: str,
+    model: VarenPoser, num_samples: int, temperature: float, device: str
 ) -> torch.Tensor:
     """Generates pose samples using the VAREN model.
 
@@ -43,6 +41,7 @@ def generate_poses(
 
     Returns:
         torch.Tensor: Generated poses as a tensor.
+
     """
     poses = model.sample_poses(num_samples, temperature=temperature)[
         "pose_body"
@@ -52,7 +51,7 @@ def generate_poses(
 
 
 def create_meshes(
-    model: VAREN,
+    model: BodyModel,
     poses: torch.Tensor,
     device: str,
     colours: Union[np.ndarray, List] = None,
@@ -68,6 +67,7 @@ def create_meshes(
 
     Returns:
         list: List of trimesh meshes representing the generated poses.
+
     """
     n_poses = poses.shape[0]
     if shape is None:
@@ -111,6 +111,7 @@ def save_samples(
         poses (torch.Tensor): The generated poses.
         scene (list): List of trimesh meshes.
         output_folder (str, optional): Directory to save files. Defaults to "samples".
+
     """
     out_folder = Path(output_folder)
     out_folder.mkdir(parents=True, exist_ok=True)

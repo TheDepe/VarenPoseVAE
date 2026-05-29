@@ -32,13 +32,13 @@
 #
 # Author: Dennis Perrett
 
-import torch
 import argparse
-import trimesh
-import numpy as np
-from varen import VAREN
 from pathlib import Path
 
+import numpy as np
+import torch
+import trimesh
+from hbm import BodyModel
 from varen_poser.utils.example_utils import load_model
 
 
@@ -62,8 +62,7 @@ def parse_arguments():
 
 
 def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
-    """
-    Samples new poses by setting each latent dimension to -2sd, 0, or +2sd,
+    """Samples new poses by setting each latent dimension to -2sd, 0, or +2sd,
     keeping all other dimensions fixed to 0. For each latent dimension,
     the three possibilities are considered (-2sd, 0, +2sd).
 
@@ -75,12 +74,13 @@ def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
 
     Returns:
         Dict[str, torch.Tensor]: Dictionary containing generated poses.
+
     """
     np.random.seed(seed)
 
-    assert (
-        temperature > 0.0
-    ), f"Temperature must be positive and non-zero. Got {temperature}"
+    assert temperature > 0.0, (
+        f"Temperature must be positive and non-zero. Got {temperature}"
+    )
     assert sd > 0.0, f"Standard deviation must be positive. Got {sd}"
 
     # Define the latent values as [-2sd, 0, +2sd] for each dimension
@@ -90,7 +90,6 @@ def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
 
     # Create one vector for each latent dimension
     for i in range(model.latentD):
-
         latent_vector = torch.zeros(model.latentD, dtype=torch.float32)
         for val in latent_values:
             latent_vector[i] = val
@@ -107,14 +106,14 @@ def sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None):
         return model.decode(latent_tensor)
 
 
-def visualize_and_export_horses(poses, model: VAREN, out_folder="samples"):
-    """
-    Visualize and export the 96 horses as trimesh objects with naming convention based on latent dimensions.
+def visualize_and_export_horses(poses, model: BodyModel, out_folder="samples"):
+    """Visualize and export the 96 horses as trimesh objects with naming convention based on latent dimensions.
 
     Args:
         poses (torch.Tensor): Tensor containing the generated poses with shape (96, 37, 3).
         model (nn.Module): The model used to generate the poses, used for mesh creation.
         out_folder (str): Directory where the meshes will be saved.
+
     """
     # Create the output folder if it doesn't exist
     out_folder = Path(out_folder)
@@ -160,7 +159,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = load_model(args.varen_model_path, args.checkpoint_path, device)
-    varen = VAREN(args.varen_model_path).to(device)
+    varen = BodyModel(args.varen_model_path).to(device)
     poses = sample_poses_custom(model, temperature=1.0, sd=1.0, seed=None)[
         "pose_body"
     ]
